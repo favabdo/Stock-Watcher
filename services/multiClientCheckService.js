@@ -37,9 +37,9 @@ async function checkAllItemsAcrossBranches(pool) {
     .filter((r) => Number(r.liveReorderQty) >= 0)
     .map((r) => ({
       itemid: r.itemid,
-      Code: r.Code,
-      Name_Ar: r.Name_Ar,
-      Name_En: r.Name_En,
+      Code: r.itemcode,
+      Name_Ar: r.itemname,
+      Name_En: r.itemname,
       ReorderQty: r.ReorderQty,
       storeid: r.storeid,
       storename: r.storename,

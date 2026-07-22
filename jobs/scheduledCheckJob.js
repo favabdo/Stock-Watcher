@@ -1,7 +1,6 @@
 const cron = require('node-cron');
 const clientsRepository = require('../repositories/clientsRepository');
 const multiClientCheckService = require('../services/multiClientCheckService');
-const { setLowStockCache } = require('../controllers/itemsController');
 
 // التشغيل التلقائي بيتفعل بـ:
 //   ENABLE_CRON=true
@@ -38,9 +37,6 @@ async function runAllClientsCheck() {
       const fullConfig = await clientsRepository.getClientConnectionConfig(client.id);
       const result = await multiClientCheckService.runCheckForClient(fullConfig);
       console.log(`[Cron] "${result.clientName}": ${result.belowThresholdCount} حالة تحت حد إعادة الطلب`);
-      // نستفيد من الفحص اللي أصلًا حصل هنا عشان نسخّن كاش الصفحة الرئيسية
-      // (getLowStock) - العميل هيلاقي بيانات جاهزة وطازة من غير ما يستنى فحص تاني.
-      setLowStockCache(client.id, result.belowThreshold);
     } catch (err) {
       console.error(`[Cron] فشل فحص العميل "${client.clientName}":`, err.message);
     }
