@@ -1,4 +1,4 @@
-const { sql, getPool } = require('../config/db');
+const { sql } = require('../config/db');
 
 // @TDate بيتخزن بصيغة YYYYMMDD كرقم (مثلاً 20260722)
 function todayAsYYYYMMDD() {
@@ -12,7 +12,7 @@ function todayAsYYYYMMDD() {
 // بيشغل wh_FollowRequestEnd لصنف معين وفرع معين.
 // ملحوظة: البروسيدر نفسه بيفلتر داخليًا (ReorderQty<>0 and stock<=ReorderQty)
 // يعني أي صف يرجع فعلاً معناه الصنف تحت الحد المسموح في الفرع ده.
-async function runFollowRequestEnd({
+async function runFollowRequestEnd(pool, {
   itemNO,
   branchID,
   storeId = 0, // 0 = كل المخازن (زي ما موضح جوه البروسيدر نفسه)
@@ -21,7 +21,6 @@ async function runFollowRequestEnd({
   supplierId = null,
   tDate = null,
 }) {
-  const pool = await getPool();
   const request = pool.request();
   request.input('StoreId', sql.Int, storeId);
   request.input('itemNO', sql.Int, itemNO);

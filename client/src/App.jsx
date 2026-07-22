@@ -2,10 +2,12 @@ import { useState } from 'react';
 import SearchBox from './components/SearchBox';
 import ItemPanel from './components/ItemPanel';
 import CheckResults from './components/CheckResults';
+import ClientsSettings from './components/ClientsSettings';
 import { checkStock } from './api';
 import logo from './logo.png';
 
 export default function App() {
+  const [view, setView] = useState('main'); // 'main' | 'settings'
   const [selectedItem, setSelectedItem] = useState(null);
   const [checkData, setCheckData] = useState(null);
   const [checking, setChecking] = useState(false);
@@ -45,19 +47,30 @@ export default function App() {
         </div>
       </header>
 
-      <SearchBox onSelect={handleSelect} />
+      <nav className="tabs">
+        <button className={view === 'main' ? 'tab active' : 'tab'} onClick={() => setView('main')}>الرئيسية</button>
+        <button className={view === 'settings' ? 'tab active' : 'tab'} onClick={() => setView('settings')}>الإعدادات</button>
+      </nav>
 
-      {selectedItem && (
-        <ItemPanel
-          item={selectedItem}
-          onUpdated={handleUpdated}
-          onCheckStock={handleCheckStock}
-          checking={checking}
-        />
+      {view === 'main' ? (
+        <>
+          <SearchBox onSelect={handleSelect} />
+
+          {selectedItem && (
+            <ItemPanel
+              item={selectedItem}
+              onUpdated={handleUpdated}
+              onCheckStock={handleCheckStock}
+              checking={checking}
+            />
+          )}
+
+          {checkError && <p className="error-text">{checkError}</p>}
+          <CheckResults data={checkData} />
+        </>
+      ) : (
+        <ClientsSettings />
       )}
-
-      {checkError && <p className="error-text">{checkError}</p>}
-      <CheckResults data={checkData} />
     </div>
   );
 }

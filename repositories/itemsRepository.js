@@ -1,10 +1,9 @@
-const { sql, getPool } = require('../config/db');
+const { sql } = require('../config/db');
 
 // بحث عن صنف بالكود أو الاسم (عربي/إنجليزي)
 // لو المستخدم كتب رقم كود بالظبط -> مطابقة تامة على الكود (يرجع الصنف ده بس)
 // لو كتب نص -> بحث جزئي في الاسم (عربي/إنجليزي) زي ما كان
-async function searchItems(term) {
-  const pool = await getPool();
+async function searchItems(pool, term) {
   const request = pool.request();
 
   const isExactCode = /^\d+$/.test(term.trim());
@@ -32,8 +31,7 @@ async function searchItems(term) {
   return result.recordset;
 }
 
-async function getItemById(id) {
-  const pool = await getPool();
+async function getItemById(pool, id) {
   const request = pool.request();
   request.input('id', sql.Int, id);
   const result = await request.query(`
@@ -44,8 +42,7 @@ async function getItemById(id) {
   return result.recordset[0] || null;
 }
 
-async function updateReorderQty(id, reorderQty) {
-  const pool = await getPool();
+async function updateReorderQty(pool, id, reorderQty) {
   const request = pool.request();
   request.input('id', sql.Int, id);
   request.input('reorderQty', sql.Float, reorderQty);
@@ -54,7 +51,19 @@ async function updateReorderQty(id, reorderQty) {
     SET ReorderQty = @reorderQty
     WHERE ID = @id
   `);
-  return getItemById(id);
+  return getItemById(pool, id);
 }
 
-module.exports = { searchItems, getItemById, updateReorderQty };
+// كل الأصناف اللي ليها حد إعادة طلب متظبط (ReorderQty <> 0) - يستخدم في الفحص
+// الشامل التلقائي لكل الأصناف بتاع كل عميل (مش صنف واحد بس زي الفحص اليدوي)
+async function getAllItemsWithReorder(pool) {
+  const result = await pool.request().query(`
+    SELECT ID, Code, Name_Ar, Name_En, ReorderQty, MinQty, MaxQty
+    FROM dbo.wh_Items
+    WHERE ReorderQty IS NOT NULL AND ReorderQty <> 0
+    ORDER BY Code
+  `);
+  return result.recordset;
+}
+
+module.exports = { searchItems, getItemById, updateReorderQty, getAllItemsWithReorder };

@@ -1,3 +1,4 @@
+const { getPool } = require('../config/db');
 const branchRepository = require('../repositories/branchRepository');
 const stockRepository = require('../repositories/stockRepository');
 const itemsRepository = require('../repositories/itemsRepository');
@@ -5,18 +6,19 @@ const itemsRepository = require('../repositories/itemsRepository');
 // بيتشيك على صنف معين في كل الفروع، ولو لقى فرع تحت حد ReorderQty بيطبع
 // "أكشن" في التيرمينل مؤقتًا (مكان الإشعار الحقيقي لسه هيتحدد بعدين).
 async function checkItemAcrossBranches(itemId) {
-  const item = await itemsRepository.getItemById(itemId);
+  const pool = await getPool();
+  const item = await itemsRepository.getItemById(pool, itemId);
   if (!item) {
     throw Object.assign(new Error('الصنف غير موجود'), { status: 404 });
   }
 
-  const branchIds = await branchRepository.getAllBranchIds();
+  const branchIds = await branchRepository.getAllBranchIds(pool);
   const belowThreshold = [];
 
   for (const branchID of branchIds) {
     let rows;
     try {
-      rows = await stockRepository.runFollowRequestEnd({ itemNO: item.ID, branchID });
+      rows = await stockRepository.runFollowRequestEnd(pool, { itemNO: item.ID, branchID });
     } catch (err) {
       console.error(`[StockCheck] فرع ${branchID} - خطأ في تشغيل wh_FollowRequestEnd:`, err.message);
       continue;
