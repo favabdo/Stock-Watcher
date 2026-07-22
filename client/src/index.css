@@ -389,10 +389,20 @@ select {
   padding: 10px 14px;
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
-  font-size: 15px;
+  font-size: 16px;
   background: var(--color-bg-elevated);
   color: var(--color-text);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* iOS Safari زوم تلقائي عند التركيز على أي input بخط أصغر من 16px،
+   فبنخلي الخط الفعلي 16px دايمًا على الموبايل مهما كانت أي كلاس تانية بتقلله */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
 }
 
 input::placeholder {
