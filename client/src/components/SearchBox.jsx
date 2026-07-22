@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { searchItems } from '../api';
 
-export default function SearchBox({ onSelect }) {
+export default function SearchBox({ onSelect, onSearchStart }) {
   const [term, setTerm] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -10,6 +10,9 @@ export default function SearchBox({ onSelect }) {
 
   async function handleSearch() {
     if (!term.trim()) return;
+    // بحث جديد بدأ - نبلغ الأب يخفي نتيجة تشيك الاستوك القديمة (لو موجودة)
+    // بدل ما تفضل ظاهرة وهي بقت مالهاش علاقة بالبحث الجديد
+    onSearchStart?.();
     setLoading(true);
     setError('');
     try {

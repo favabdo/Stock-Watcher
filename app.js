@@ -5,6 +5,7 @@ const itemsRoutes = require('./routes/items.routes');
 const clientsRoutes = require('./routes/clients.routes');
 const authRoutes = require('./routes/auth.routes');
 const scheduledCheckJob = require('./jobs/scheduledCheckJob');
+const cacheWarmup = require('./jobs/cacheWarmup');
 
 const app = express();
 app.use(express.json());
@@ -26,5 +27,12 @@ app.use((err, req, res, next) => {
 
 // الفحص التلقائي المجدول لكل العملاء (اختياري - يتفعل بـ ENABLE_CRON=true)
 scheduledCheckJob.start();
+
+// تسخين كاش الأصناف تحت حد إعادة الطلب لكل العملاء وقت بدء تشغيل السيرفر -
+// من غير await عشان مايأخرش استقبال الطلبات (بما فيها /health). ده اللي بيخلي
+// أول فتح للصفحة الرئيسية بعد أي ديبلوي/إعادة تشغيل سريع بدل ما يستنى فحص كامل.
+cacheWarmup.warmAllClients().catch((err) => {
+  console.error('[Warmup] خطأ غير متوقع أثناء تسخين الكاش:', err.message);
+});
 
 module.exports = app;

@@ -19,7 +19,11 @@ async function getPoolForClient(clientConnectionConfig) {
       encrypt: !!clientConnectionConfig.dbEncrypt,
       trustServerCertificate: clientConnectionConfig.dbTrustServerCertificate !== false,
     },
-    pool: { max: 5, min: 0, idleTimeoutMillis: 30000 },
+    // max اتزود من 5 لـ 10 عشان يقدر يستحمل زيادة الـ concurrency بتاع الفحص
+    // الشامل (CHECK_CONCURRENCY في multiClientCheckService) من غير ما نعمل
+    // queueing على نداءات المستخدم العادية (بحث، فتح صنف...) وهي شغالة.
+    // قابل للتعديل عن طريق CLIENT_POOL_MAX لو السيرفر بتاع العميل مش مستحمل.
+    pool: { max: Number(process.env.CLIENT_POOL_MAX) || 10, min: 0, idleTimeoutMillis: 30000 },
   };
 
   const poolPromise = new sql.ConnectionPool(config)

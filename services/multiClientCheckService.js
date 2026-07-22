@@ -8,9 +8,11 @@ const { mapWithConcurrency } = require('../utils/concurrency');
 const MAX_LINES_IN_MESSAGE = 30;
 
 // أقصى عدد نداءات لـ wh_FollowRequestEnd تشتغل في نفس الوقت. لازم يفضل أقل من
-// أصغر pool.max عندنا (clientPoolManager بيستخدم 5) عشان منعملش queueing زيادة.
-// ممكن تزوده عن طريق متغير بيئة STOCK_CHECK_CONCURRENCY لو رفعت الـ pool size.
-const CHECK_CONCURRENCY = Number(process.env.STOCK_CHECK_CONCURRENCY) || 5;
+// أصغر pool.max عندنا (clientPoolManager بيستخدم 10 دلوقتي) عشان منعملش queueing
+// زيادة، وسايبين هامش (10 مش 8) عشان نداءات المستخدم العادية (بحث، فتح صنف...)
+// تقدر تتنفذ من غير ما تستنى دور. ممكن تزوده عن طريق متغير بيئة
+// STOCK_CHECK_CONCURRENCY لو رفعت الـ pool size (CLIENT_POOL_MAX) كمان.
+const CHECK_CONCURRENCY = Number(process.env.STOCK_CHECK_CONCURRENCY) || 8;
 
 function buildWhatsappMessage(clientName, belowThreshold) {
   const lines = [];

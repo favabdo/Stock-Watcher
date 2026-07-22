@@ -46,6 +46,14 @@ export default function App() {
     setCheckError('');
   }
 
+  // بيتنده أول ما المستخدم يبدأ بحث جديد (زرار بحث أو Enter) - قبل ما نعرف
+  // نتيجة البحث حتى. بيخفي نتيجة تشيك الاستوك بتاعة الصنف القديم فورًا، عشان
+  // مايفضلش ظاهر تحت نتايج البحث الجديدة وهو بيتكلم عن صنف تاني خالص.
+  function handleSearchStart() {
+    setCheckData(null);
+    setCheckError('');
+  }
+
   function handleUpdated(updated) {
     setSelectedItem(updated);
   }
@@ -102,7 +110,7 @@ export default function App() {
           <>
             <LowStockList onSelect={handleSelect} />
 
-            <SearchBox onSelect={handleSelect} />
+            <SearchBox onSelect={handleSelect} onSearchStart={handleSearchStart} />
 
             {selectedItem && (
               <ItemPanel
