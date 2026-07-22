@@ -54,16 +54,4 @@ async function updateReorderQty(pool, id, reorderQty) {
   return getItemById(pool, id);
 }
 
-// كل الأصناف اللي ليها حد إعادة طلب متظبط (ReorderQty <> 0) - يستخدم في الفحص
-// الشامل التلقائي لكل الأصناف بتاع كل عميل (مش صنف واحد بس زي الفحص اليدوي)
-async function getAllItemsWithReorder(pool) {
-  const result = await pool.request().query(`
-    SELECT ID, Code, Name_Ar, Name_En, ReorderQty, MinQty, MaxQty
-    FROM dbo.wh_Items
-    WHERE ReorderQty IS NOT NULL AND ReorderQty <> 0
-    ORDER BY Code
-  `);
-  return result.recordset;
-}
-
-module.exports = { searchItems, getItemById, updateReorderQty, getAllItemsWithReorder };
+module.exports = { searchItems, getItemById, updateReorderQty };

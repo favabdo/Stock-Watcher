@@ -1,45 +1,18 @@
 const { sql } = require('../config/db');
 
-// @TDate بيتخزن بصيغة YYYYMMDD كرقم (مثلاً 20260722)
-function todayAsYYYYMMDD() {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  const d = String(now.getDate()).padStart(2, '0');
-  return Number(`${y}${m}${d}`);
-}
-
-// بيشغل wh_FollowRequestEnd لصنف معين وفرع معين.
-// ملحوظة: البروسيدر نفسه بيفلتر داخليًا (ReorderQty<>0 and stock<=ReorderQty)
-// يعني أي صف يرجع فعلاً معناه الصنف تحت الحد المسموح في الفرع ده.
-async function runFollowRequestEnd(pool, {
-  itemNO,
-  branchID,
-  storeId = 0, // 0 = كل المخازن (زي ما موضح جوه البروسيدر نفسه)
-  groupId = null,
-  supGroupId = null,
-  supplierId = null,
-  tDate = null,
-}) {
-  const request = pool.request();
-  request.input('StoreId', sql.Int, storeId);
-  request.input('itemNO', sql.Int, itemNO);
-  request.input('GroupId', sql.Int, groupId);
-  request.input('supgroupid', sql.Int, supGroupId);
-  request.input('SupplierId', sql.Int, supplierId);
-  request.input('TDate', sql.BigInt, tDate ?? todayAsYYYYMMDD());
-  request.input('BranchID', sql.Int, branchID);
-
-  const result = await request.execute('dbo.wh_FollowRequestEnd');
-  return result.recordset || [];
-}
-
 // بيشغل wh_ItemStockWatcherNew لصنف معين، وبيرجع صف لكل مخزن (store) الصنف ده
 // له فيه رصيد - مش لكل فرع زي القديم. البروسيدر بيحسب liveReorderQty
 // (ReorderQty - transpkgqty1) وبيرجع حد إعادة الطلب من نفس الجدول
 // (dbo.wh_Items) اللي بيتحدث منه updateReorderQty، فمفيش داعي لأي تغيير تاني
 // في مكان تعديل الحد.
+//
+// isReorder = 1 له معنى خاص جوه البروسيدر نفسه: بيرجع كل الأصناف اللي تعدت حد
+// إعادة الطلب دفعة واحدة (مش صنف واحد بس) باللوجيك الصحيح - ده المستخدم في
+// الفحص الشامل لكل الأصناف (multiClientCheckService) بدل ما نلف يدويًا على
+// كل صنف/فرع. الفحص اليدوي لصنف واحد (stockCheckService) بيسيب isReorder = 0
+// (الافتراضي) وبيبعت itemId بس.
 async function runItemStockWatcher(pool, {
+  isReorder = 0,
   itemId = null,
   storeId = null,
   groupId = null,
@@ -49,6 +22,7 @@ async function runItemStockWatcher(pool, {
   branchId = null,
 } = {}) {
   const request = pool.request();
+  request.input('isReorder', sql.Int, isReorder);
   request.input('itemid', sql.BigInt, itemId);
   request.input('storeid', sql.Int, storeId);
   request.input('groupid', sql.Int, groupId);
@@ -61,4 +35,4 @@ async function runItemStockWatcher(pool, {
   return result.recordset || [];
 }
 
-module.exports = { runFollowRequestEnd, runItemStockWatcher, todayAsYYYYMMDD };
+module.exports = { runItemStockWatcher };

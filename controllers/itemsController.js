@@ -123,8 +123,8 @@ async function updateReorderQty(req, res, next) {
   }
 }
 
-// كل الأصناف اللي وصلت لحد إعادة الطلب أو أقل في فرع واحد على الأقل بتاعة العميل
-// المسجل دخول حاليًا بس، مجمّعة حسب الصنف (كل صنف مع كل الفروع اللي تحت الحد بتاعته).
+// كل الأصناف اللي وصلت لحد إعادة الطلب أو أقل في مخزن واحد على الأقل بتاعة العميل
+// المسجل دخول حاليًا بس، مجمّعة حسب الصنف (كل صنف مع كل المخازن اللي تحت الحد بتاعته).
 // ده اللي بيتعرض في الصفحة الرئيسية أول ما العميل يسجل دخول.
 async function getLowStock(req, res, next) {
   try {
@@ -132,11 +132,20 @@ async function getLowStock(req, res, next) {
     const rows = await getLowStockRowsCached(config.id, pool);
 
     const byItem = new Map();
-    for (const { item, branchID, row } of rows) {
-      if (!byItem.has(item.ID)) {
-        byItem.set(item.ID, { item, branches: [] });
+    for (const row of rows) {
+      if (!byItem.has(row.itemid)) {
+        byItem.set(row.itemid, {
+          item: {
+            ID: row.itemid,
+            Code: row.Code,
+            Name_Ar: row.Name_Ar,
+            Name_En: row.Name_En,
+            ReorderQty: row.ReorderQty,
+          },
+          branches: [],
+        });
       }
-      byItem.get(item.ID).branches.push({ branchID, stock: row.Stock });
+      byItem.get(row.itemid).branches.push({ storeid: row.storeid, storename: row.storename, stock: row.transpkgqty1 });
     }
 
     res.json(Array.from(byItem.values()));

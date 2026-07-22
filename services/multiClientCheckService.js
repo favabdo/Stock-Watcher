@@ -1,18 +1,8 @@
 const clientPoolManager = require('./clientPoolManager');
-const branchRepository = require('../repositories/branchRepository');
 const stockRepository = require('../repositories/stockRepository');
-const itemsRepository = require('../repositories/itemsRepository');
 const whatsappService = require('./whatsappService');
-const { mapWithConcurrency } = require('../utils/concurrency');
 
 const MAX_LINES_IN_MESSAGE = 30;
-
-// أقصى عدد نداءات لـ wh_FollowRequestEnd تشتغل في نفس الوقت. لازم يفضل أقل من
-// أصغر pool.max عندنا (clientPoolManager بيستخدم 10 دلوقتي) عشان منعملش queueing
-// زيادة، وسايبين هامش (10 مش 8) عشان نداءات المستخدم العادية (بحث، فتح صنف...)
-// تقدر تتنفذ من غير ما تستنى دور. ممكن تزوده عن طريق متغير بيئة
-// STOCK_CHECK_CONCURRENCY لو رفعت الـ pool size (CLIENT_POOL_MAX) كمان.
-const CHECK_CONCURRENCY = Number(process.env.STOCK_CHECK_CONCURRENCY) || 8;
 
 function buildWhatsappMessage(clientName, belowThreshold) {
   const lines = [];
@@ -20,10 +10,9 @@ function buildWhatsappMessage(clientName, belowThreshold) {
   lines.push(`فيه ${belowThreshold.length} حالة وصلت لحد إعادة الطلب أو أقل منه:`);
   lines.push('');
 
-  belowThreshold.slice(0, MAX_LINES_IN_MESSAGE).forEach((entry, i) => {
-    const { item, branchID, row } = entry;
-    const name = item.Name_Ar || item.Name_En || item.Code;
-    lines.push(`${i + 1}) ${item.Code} - ${name} | فرع ${branchID}: الاستوك ${row.Stock} (الحد ${item.ReorderQty})`);
+  belowThreshold.slice(0, MAX_LINES_IN_MESSAGE).forEach((row, i) => {
+    const name = row.Name_Ar || row.Name_En || row.Code;
+    lines.push(`${i + 1}) ${row.Code} - ${name} | ${row.storename}: الاستوك ${row.transpkgqty1} (الحد ${row.ReorderQty})`);
   });
 
   if (belowThreshold.length > MAX_LINES_IN_MESSAGE) {
@@ -33,39 +22,30 @@ function buildWhatsappMessage(clientName, belowThreshold) {
   return lines.join('\n');
 }
 
-// بيفحص كل الأصناف اللي ليها ReorderQty في كل الفروع (مش صنف واحد بس)، ويرجع
-// كل حالة (صنف + فرع) وصلت لحد إعادة الطلب أو أقل.
-// ملحوظة: البروسيدر بيتنده لكل صنف/فرع لأنه بياخد itemNO كباراميتر مطلوب - ده
-// نفس المنطق المجرب في الفحص اليدوي بالظبط، بس بيتلف على كل الأصناف مش صنف واحد.
+// بيفحص كل الأصناف اللي وصلت لحد إعادة الطلب أو أقل في أي مخزن، عن طريق نداء
+// واحد بس لـ wh_ItemStockWatcherNew بباراميتر isReorder = 1 - القيمة دي معمولة
+// في البروسيدر نفسه عشان ترجع كل الأصناف اللي تعدت حد إعادة الطلب دفعة واحدة
+// باللوجيك الصحيح، بدل ما نلف يدويًا (صنف × فرع) زي الأسلوب القديم.
 //
-// بدل ما ننده على البروسيدر (صنف × فرع) واحد واحد بالتسلسل (اللي كان بياخد وقت
-// طويل جدًا مع عدد كبير من الأصناف)، بننده على كذا نداء في نفس الوقت (parallel)
-// بحد أقصى CHECK_CONCURRENCY عشان نستفيد من الـ connection pool من غير ما نرهقه.
+// نفس معيار "تحت الحد" المستخدم في الفحص اليدوي لصنف واحد (stockCheckService):
+// liveReorderQty >= 0  -> الصنف وصل لحد إعادة الطلب أو تجاوزه (لازم تنبيه)
+// liveReorderQty < 0   -> الرصيد لسه فوق الحد، مفيش مشكلة
 async function checkAllItemsAcrossBranches(pool) {
-  const [branchIds, items] = await Promise.all([
-    branchRepository.getAllBranchIds(pool),
-    itemsRepository.getAllItemsWithReorder(pool),
-  ]);
+  const rows = await stockRepository.runItemStockWatcher(pool, { isReorder: 1 });
 
-  const tasks = [];
-  for (const item of items) {
-    for (const branchID of branchIds) {
-      tasks.push({ item, branchID });
-    }
-  }
-
-  const results = await mapWithConcurrency(tasks, CHECK_CONCURRENCY, async ({ item, branchID }) => {
-    try {
-      const rows = await stockRepository.runFollowRequestEnd(pool, { itemNO: item.ID, branchID });
-      const match = rows.find((r) => String(r.itemid) === String(item.ID));
-      return match ? { item, branchID, row: match } : null;
-    } catch (err) {
-      console.error(`[MultiCheck] فرع ${branchID} - صنف ${item.Code} - خطأ في wh_FollowRequestEnd:`, err.message);
-      return null;
-    }
-  });
-
-  return results.filter(Boolean);
+  return rows
+    .filter((r) => Number(r.liveReorderQty) >= 0)
+    .map((r) => ({
+      itemid: r.itemid,
+      Code: r.Code,
+      Name_Ar: r.Name_Ar,
+      Name_En: r.Name_En,
+      ReorderQty: r.ReorderQty,
+      storeid: r.storeid,
+      storename: r.storename,
+      transpkgqty1: r.transpkgqty1,
+      liveReorderQty: r.liveReorderQty,
+    }));
 }
 
 // بيشغل الفحص الكامل لعميل معين، ولو فيه أي حالة تحت الحد بيبعت رسالة واتساب
