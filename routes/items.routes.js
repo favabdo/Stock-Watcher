@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const itemsController = require('../controllers/itemsController');
 const checkController = require('../controllers/checkController');
+const clientAuth = require('../middleware/clientAuth');
+
+router.use(clientAuth);
 
 router.get('/search', itemsController.search);
 router.get('/low-stock', itemsController.getLowStock);

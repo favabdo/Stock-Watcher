@@ -3,6 +3,7 @@ const express = require('express');
 const path = require('path');
 const itemsRoutes = require('./routes/items.routes');
 const clientsRoutes = require('./routes/clients.routes');
+const authRoutes = require('./routes/auth.routes');
 const scheduledCheckJob = require('./jobs/scheduledCheckJob');
 
 const app = express();
@@ -13,6 +14,7 @@ app.get('/health', (req, res) => res.status(200).json({ status: 'ok' }));
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+app.use('/api/auth', authRoutes);
 app.use('/api/items', itemsRoutes);
 app.use('/api/clients', clientsRoutes);
 

@@ -3,8 +3,14 @@ const branchRepository = require('../repositories/branchRepository');
 const stockRepository = require('../repositories/stockRepository');
 const itemsRepository = require('../repositories/itemsRepository');
 const whatsappService = require('./whatsappService');
+const { mapWithConcurrency } = require('../utils/concurrency');
 
 const MAX_LINES_IN_MESSAGE = 30;
+
+// أقصى عدد نداءات لـ wh_FollowRequestEnd تشتغل في نفس الوقت. لازم يفضل أقل من
+// أصغر pool.max عندنا (clientPoolManager بيستخدم 5) عشان منعملش queueing زيادة.
+// ممكن تزوده عن طريق متغير بيئة STOCK_CHECK_CONCURRENCY لو رفعت الـ pool size.
+const CHECK_CONCURRENCY = Number(process.env.STOCK_CHECK_CONCURRENCY) || 5;
 
 function buildWhatsappMessage(clientName, belowThreshold) {
   const lines = [];
@@ -29,31 +35,35 @@ function buildWhatsappMessage(clientName, belowThreshold) {
 // كل حالة (صنف + فرع) وصلت لحد إعادة الطلب أو أقل.
 // ملحوظة: البروسيدر بيتنده لكل صنف/فرع لأنه بياخد itemNO كباراميتر مطلوب - ده
 // نفس المنطق المجرب في الفحص اليدوي بالظبط، بس بيتلف على كل الأصناف مش صنف واحد.
+//
+// بدل ما ننده على البروسيدر (صنف × فرع) واحد واحد بالتسلسل (اللي كان بياخد وقت
+// طويل جدًا مع عدد كبير من الأصناف)، بننده على كذا نداء في نفس الوقت (parallel)
+// بحد أقصى CHECK_CONCURRENCY عشان نستفيد من الـ connection pool من غير ما نرهقه.
 async function checkAllItemsAcrossBranches(pool) {
   const [branchIds, items] = await Promise.all([
     branchRepository.getAllBranchIds(pool),
     itemsRepository.getAllItemsWithReorder(pool),
   ]);
 
-  const belowThreshold = [];
-
+  const tasks = [];
   for (const item of items) {
     for (const branchID of branchIds) {
-      let rows;
-      try {
-        rows = await stockRepository.runFollowRequestEnd(pool, { itemNO: item.ID, branchID });
-      } catch (err) {
-        console.error(`[MultiCheck] فرع ${branchID} - صنف ${item.Code} - خطأ في wh_FollowRequestEnd:`, err.message);
-        continue;
-      }
-      const match = rows.find((r) => String(r.itemid) === String(item.ID));
-      if (match) {
-        belowThreshold.push({ item, branchID, row: match });
-      }
+      tasks.push({ item, branchID });
     }
   }
 
-  return belowThreshold;
+  const results = await mapWithConcurrency(tasks, CHECK_CONCURRENCY, async ({ item, branchID }) => {
+    try {
+      const rows = await stockRepository.runFollowRequestEnd(pool, { itemNO: item.ID, branchID });
+      const match = rows.find((r) => String(r.itemid) === String(item.ID));
+      return match ? { item, branchID, row: match } : null;
+    } catch (err) {
+      console.error(`[MultiCheck] فرع ${branchID} - صنف ${item.Code} - خطأ في wh_FollowRequestEnd:`, err.message);
+      return null;
+    }
+  });
+
+  return results.filter(Boolean);
 }
 
 // بيشغل الفحص الكامل لعميل معين، ولو فيه أي حالة تحت الحد بيبعت رسالة واتساب

@@ -11,6 +11,8 @@ const emptyForm = {
   dbEncrypt: false,
   dbTrustServerCertificate: true,
   whatsappPhone: '',
+  loginUsername: '',
+  loginPassword: '',
   isActive: true,
 };
 
@@ -77,7 +79,7 @@ export default function ClientsSettings() {
   }
 
   function openEditForm(client) {
-    setForm({ ...client, dbPassword: '' }); // الباسورد بيفضل فاضي، يتحدث بس لو كتب واحد جديد
+    setForm({ ...client, dbPassword: '', loginPassword: '' }); // الباسوردات بتفضل فاضية، تتحدث بس لو كتب باسورد جديد
     setEditingId(client.id);
   }
 
@@ -198,6 +200,17 @@ export default function ClientsSettings() {
             <label><input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} /> نشط</label>
           </div>
 
+          <div className="field-row">
+            <div className="field">
+              <label>يوزر تسجيل دخول العميل</label>
+              <input value={form.loginUsername} onChange={(e) => setForm({ ...form, loginUsername: e.target.value })} placeholder="مثال: nilestock" />
+            </div>
+            <div className="field">
+              <label>باسورد تسجيل دخول العميل {editingId !== 'new' && '(سيبه فاضي لو مش هتغيره)'}</label>
+              <input type="password" value={form.loginPassword} onChange={(e) => setForm({ ...form, loginPassword: e.target.value })} />
+            </div>
+          </div>
+
           <div className="field">
             <label>رقم واتساب العميل (بصيغة دولية، مثال 201012345678)</label>
             <input value={form.whatsappPhone} onChange={(e) => setForm({ ...form, whatsappPhone: e.target.value })} placeholder="201012345678" />
@@ -228,6 +241,9 @@ export default function ClientsSettings() {
               </div>
               <p className="client-meta">
                 {client.dbServer}:{client.dbPort} / {client.dbName} — واتساب: {client.whatsappPhone}
+              </p>
+              <p className="client-meta">
+                يوزر الدخول: {client.loginUsername || <span className="error-text">(مش متظبط - العميل مش هيقدر يسجل دخول)</span>}
               </p>
               {cr?.error && <p className="error-text">خطأ في التشيك: {cr.error}</p>}
               {cr?.result && (

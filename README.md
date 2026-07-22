@@ -9,6 +9,35 @@
 - **الباك اند**: Node.js/Express + `mssql` (tedious) — نفس بنية NileChat.
 - **الفرونت اند**: React (Vite) في مجلد `client/`، وبتتبني مباشرة جوه مجلد `public/` عشان Express يسيرفها كملفات static عادية (مفيش سيرفر تاني منفصل في الإنتاج).
 
+## تعدد العملاء وتسجيل دخول العميل (Multi-tenant)
+
+الأدمن بيضيف كل عميل من صفحة "الإعدادات" (محمية بـ Basic Auth عبر `SETTINGS_BASIC_AUTH_USER`/`PASS`)، وبيدخل له بيانات نوعين مختلفين تمامًا:
+
+1. **بيانات الاتصال بقاعدة بيانات العميل** (`DbServer`/`DbName`/`DbUser`/`DbPassword`...) - دي السيرفر بيستخدمها داخليًا بس عشان يوصل لقاعدة بيانات العميل ويجيب منها الأصناف/الاستوك، ومبتتبعتش للعميل نفسه أبدًا.
+2. **يوزر وباسورد تسجيل دخول العميل** (`LoginUsername`/`LoginPassword`) - دي اللي العميل بيدخل بيها على الموقع من الصفحة الرئيسية عشان يشوف بياناته هو بس.
+
+الصفحة الرئيسية بقت صفحة تسجيل دخول: العميل بيكتب اليوزر والباسورد اللي الأدمن أداهوله، والسيرفر بيرجعله توكن (JWT) صالح لمدة 30 يوم بيتخزن في المتصفح، وكل الطلبات بعد كده (البحث، المخزون المنخفض، التشيك...) بتتفلتر تلقائيًا على قاعدة بيانات العميل ده بس - مش كل العملاء زي ما كان بيحصل قبل كده.
+
+### API الخاص بتسجيل الدخول
+
+- `POST /api/auth/login` `{ "username": "...", "password": "..." }` → `{ token, client: { id, clientName } }`
+- `GET  /api/auth/me` (محتاج `Authorization: Bearer <token>`) → بيرجع بيانات العميل، يستخدم للتأكد من صلاحية الجلسة بعد إعادة تحميل الصفحة.
+
+كل مسارات `/api/items/*` بقت محمية بنفس التوكن ده (middleware `clientAuth`)، وأي طلب من غيره بيرجع `401`.
+
+### Environment variable جديد
+
+- `JWT_SECRET` - مفتاح توليد جلسات الدخول، ولّده بنفس طريقة `ENCRYPTION_KEY`:
+  ```bash
+  node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+  ```
+
+### Migration جديد
+
+`migrations/002_add_client_login_bya.sql` بيضيف عمودين لجدول `StockWatcherUsers_byA` (`LoginUsername`, `LoginPasswordHash`) بيتشغلوا تلقائيًا مع بدء تشغيل السيرفر (`server.js`)، زي أي migration تاني في المشروع.
+
+> ملحوظة: أي عميل قديم اتضاف قبل التحديث ده، لازم الأدمن يفتح له "تعديل" من صفحة الإعدادات ويحط له يوزر وباسورد دخول، وإلا مش هيقدر يسجل دخول.
+
 ## التشغيل (Backend)
 
 ```bash
@@ -48,6 +77,7 @@ npm run build     # بيطلع الملفات جوه ../public تلقائيًا 
 - **Health Check Path**: `/health`
 - **Environment Variables** (لازم تضيفها من Render Dashboard، من `.env.example`):
   - `DB_SERVER`, `DB_DATABASE`, `DB_USER`, `DB_PASSWORD`, `DB_PORT`, `DB_ENCRYPT`, `DB_TRUST_CERT`
+  - `ENCRYPTION_KEY`, `JWT_SECRET`, `SETTINGS_BASIC_AUTH_USER`, `SETTINGS_BASIC_AUTH_PASS`
   - Render بيحط `PORT` تلقائيًا، السيرفر بيقرأها من `process.env.PORT` أصلاً.
 
 ### ⚠️ الحاجة الوحيدة اللي لازم تتأكد منها قبل النشر
@@ -99,7 +129,9 @@ public/                     - ناتج بناء React (dist) اللي Express ب
 
 ## API
 
-- `GET  /api/items/search?q=...`       بحث عن صنف
+- `POST /api/auth/login`                يسجل دخول العميل `{ "username": "...", "password": "..." }`
+- `GET  /api/auth/me`                   بيانات العميل المسجل دخول حاليًا (محتاج توكن)
+- `GET  /api/items/search?q=...`       بحث عن صنف (محتاج توكن، على قاعدة بيانات العميل بس)
 - `GET  /api/items/:id`                بيانات صنف
 - `PUT  /api/items/:id/reorder-qty`    تعديل الحد `{ "reorderQty": 10 }`
 - `POST /api/items/:id/check-stock`    تشيك الاستوك في كل الفروع

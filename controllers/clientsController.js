@@ -13,15 +13,23 @@ async function list(req, res, next) {
 
 async function create(req, res, next) {
   try {
-    const { clientName, dbServer, dbName, dbUser, dbPassword, whatsappPhone } = req.body;
+    const { clientName, dbServer, dbName, dbUser, dbPassword, whatsappPhone, loginUsername, loginPassword } = req.body;
     if (!clientName || !dbServer || !dbName || !dbUser || !dbPassword || !whatsappPhone) {
       return res.status(400).json({
         error: 'لازم تملى: اسم العميل، السيرفر، اسم قاعدة البيانات، اليوزر، الباسورد، ورقم الواتساب',
       });
     }
+    if (!loginUsername || !loginPassword) {
+      return res.status(400).json({
+        error: 'لازم تحدد يوزر وباسورد تسجيل دخول للعميل عشان يقدر يشوف بياناته',
+      });
+    }
     const client = await clientsRepository.createClient(req.body);
     res.status(201).json(client);
   } catch (err) {
+    if (err.number === 2601 || err.number === 2627) {
+      return res.status(409).json({ error: 'يوزر الدخول ده مستخدم بالفعل لعميل تاني، اختار يوزر مختلف' });
+    }
     next(err);
   }
 }
@@ -34,6 +42,9 @@ async function update(req, res, next) {
     if (!client) return res.status(404).json({ error: 'العميل غير موجود' });
     res.json(client);
   } catch (err) {
+    if (err.number === 2601 || err.number === 2627) {
+      return res.status(409).json({ error: 'يوزر الدخول ده مستخدم بالفعل لعميل تاني، اختار يوزر مختلف' });
+    }
     next(err);
   }
 }

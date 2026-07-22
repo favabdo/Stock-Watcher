@@ -1,18 +1,34 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import SearchBox from './components/SearchBox';
 import LowStockList from './components/LowStockList';
 import ItemPanel from './components/ItemPanel';
 import CheckResults from './components/CheckResults';
 import ClientsSettings from './components/ClientsSettings';
-import { checkStock } from './api';
+import ClientLogin from './components/ClientLogin';
+import { checkStock, getStoredClientAuth, verifyClientSession, logoutClient } from './api';
 import logo from './logo.png';
 
 export default function App() {
   const [view, setView] = useState('main'); // 'main' | 'settings'
+  const [clientAuth, setClientAuth] = useState(() => getStoredClientAuth());
+  const [checkingSession, setCheckingSession] = useState(true);
   const [selectedItem, setSelectedItem] = useState(null);
   const [checkData, setCheckData] = useState(null);
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState('');
+
+  // أول ما التطبيق يفتح، بيتأكد إن جلسة الدخول المخزنة (لو موجودة) لسه صالحة
+  useEffect(() => {
+    verifyClientSession()
+      .then((auth) => setClientAuth(auth))
+      .finally(() => setCheckingSession(false));
+
+    function handleExpired() {
+      setClientAuth(null);
+    }
+    window.addEventListener('client-auth-expired', handleExpired);
+    return () => window.removeEventListener('client-auth-expired', handleExpired);
+  }, []);
 
   function handleSelect(item) {
     setSelectedItem(item);
@@ -38,39 +54,57 @@ export default function App() {
     }
   }
 
+  function handleLogout() {
+    logoutClient();
+    setClientAuth(null);
+    setSelectedItem(null);
+    setCheckData(null);
+  }
+
   return (
     <div className="container">
       <header className="brand-header">
         <img src={logo} alt="Stock Watcher" className="brand-logo" />
         <div>
           <h1>Stock Watcher</h1>
-          <p className="brand-subtitle">إدارة حد إعادة الطلب (ReorderQty)</p>
+          <p className="brand-subtitle">
+            {clientAuth ? clientAuth.client.clientName : 'إدارة حد إعادة الطلب (ReorderQty)'}
+          </p>
         </div>
       </header>
 
       <nav className="tabs">
         <button className={view === 'main' ? 'tab active' : 'tab'} onClick={() => setView('main')}>الرئيسية</button>
         <button className={view === 'settings' ? 'tab active' : 'tab'} onClick={() => setView('settings')}>الإعدادات</button>
+        {clientAuth && view === 'main' && (
+          <button className="tab" onClick={handleLogout}>خروج</button>
+        )}
       </nav>
 
       {view === 'main' ? (
-        <>
-          <LowStockList onSelect={handleSelect} />
+        checkingSession ? (
+          <p className="hint">جاري التحقق من الجلسة...</p>
+        ) : !clientAuth ? (
+          <ClientLogin onLoggedIn={setClientAuth} />
+        ) : (
+          <>
+            <LowStockList onSelect={handleSelect} />
 
-          <SearchBox onSelect={handleSelect} />
+            <SearchBox onSelect={handleSelect} />
 
-          {selectedItem && (
-            <ItemPanel
-              item={selectedItem}
-              onUpdated={handleUpdated}
-              onCheckStock={handleCheckStock}
-              checking={checking}
-            />
-          )}
+            {selectedItem && (
+              <ItemPanel
+                item={selectedItem}
+                onUpdated={handleUpdated}
+                onCheckStock={handleCheckStock}
+                checking={checking}
+              />
+            )}
 
-          {checkError && <p className="error-text">{checkError}</p>}
-          <CheckResults data={checkData} />
-        </>
+            {checkError && <p className="error-text">{checkError}</p>}
+            <CheckResults data={checkData} />
+          </>
+        )
       ) : (
         <ClientsSettings />
       )}

@@ -34,4 +34,31 @@ async function runFollowRequestEnd(pool, {
   return result.recordset || [];
 }
 
-module.exports = { runFollowRequestEnd, todayAsYYYYMMDD };
+// بيشغل wh_ItemStockWatcherNew لصنف معين، وبيرجع صف لكل مخزن (store) الصنف ده
+// له فيه رصيد - مش لكل فرع زي القديم. البروسيدر بيحسب liveReorderQty
+// (ReorderQty - transpkgqty1) وبيرجع حد إعادة الطلب من نفس الجدول
+// (dbo.wh_Items) اللي بيتحدث منه updateReorderQty، فمفيش داعي لأي تغيير تاني
+// في مكان تعديل الحد.
+async function runItemStockWatcher(pool, {
+  itemId = null,
+  storeId = null,
+  groupId = null,
+  subgroupId = null,
+  supplierId = null,
+  tDate = null,
+  branchId = null,
+} = {}) {
+  const request = pool.request();
+  request.input('itemid', sql.BigInt, itemId);
+  request.input('storeid', sql.Int, storeId);
+  request.input('groupid', sql.Int, groupId);
+  request.input('subgroupid', sql.Int, subgroupId);
+  request.input('supplierid', sql.Int, supplierId);
+  request.input('tdate', sql.Int, tDate);
+  request.input('branchid', sql.Int, branchId);
+
+  const result = await request.execute('dbo.wh_ItemStockWatcherNew');
+  return result.recordset || [];
+}
+
+module.exports = { runFollowRequestEnd, runItemStockWatcher, todayAsYYYYMMDD };
