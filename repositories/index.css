@@ -192,3 +192,36 @@ th {
 .status-ok {
   color: #1a7a3c;
 }
+
+.low-stock-wrap {
+  border: 1px solid #fde2e2;
+  background: #fff8f8;
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 18px;
+}
+
+.low-stock-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.low-stock-header h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.btn-refresh {
+  font-size: 13px;
+  padding: 4px 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.low-stock-item {
+  background: #fff;
+}

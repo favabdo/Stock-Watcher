@@ -23,6 +23,13 @@ export async function updateReorderQty(id, reorderQty) {
   return data;
 }
 
+export async function getLowStockItems() {
+  const res = await fetch(`${BASE}/low-stock`);
+  const data = await res.json().catch(() => []);
+  if (!res.ok) throw new Error(data.error || 'فشل تحميل قائمة المخزون المنخفض');
+  return data;
+}
+
 export async function checkStock(id) {
   const res = await fetch(`${BASE}/${id}/check-stock`, { method: 'POST' });
   const data = await res.json();

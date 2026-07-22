@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import SearchBox from './components/SearchBox';
+import LowStockList from './components/LowStockList';
 import ItemPanel from './components/ItemPanel';
 import CheckResults from './components/CheckResults';
 import ClientsSettings from './components/ClientsSettings';
@@ -54,6 +55,8 @@ export default function App() {
 
       {view === 'main' ? (
         <>
+          <LowStockList onSelect={handleSelect} />
+
           <SearchBox onSelect={handleSelect} />
 
           {selectedItem && (
