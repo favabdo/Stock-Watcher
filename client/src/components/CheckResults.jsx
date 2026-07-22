@@ -1,12 +1,19 @@
 export default function CheckResults({ data }) {
   if (!data) return null;
 
-  const { itemcode, stores, belowThreshold, whatsapp } = data;
+  const { item, itemcode, stores, belowThreshold, whatsapp } = data;
   const isBelow = belowThreshold.length > 0;
 
   return (
     <div className="check-results">
       <h3>نتيجة التحقق على كل المخازن</h3>
+
+      <p className="result-item-name">
+        <span className="result-item-code">{item?.Code ?? itemcode}</span>
+        {' — '}
+        {item?.Name_Ar || item?.Name_En || ''}
+      </p>
+
       <p className="check-summary">
         <span className={`status-dot ${isBelow ? 'dot-danger' : 'dot-success'}`} aria-hidden="true" />
         {isBelow
