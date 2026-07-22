@@ -17,6 +17,16 @@ export default function App() {
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState('');
 
+  // Role 0 = شايف الرئيسية والإعدادات مع بعض، Role 1 = شايف الرئيسية بس
+  const canSeeSettings = !clientAuth || (clientAuth.client.role ?? 0) === 0;
+
+  // لو العميل مش شايف تاب الإعدادات (Role 1) وكان فاتحه قبل كده، رجّعه للرئيسية
+  useEffect(() => {
+    if (!canSeeSettings && view === 'settings') {
+      setView('main');
+    }
+  }, [canSeeSettings, view]);
+
   // أول ما التطبيق يفتح، بيتأكد إن جلسة الدخول المخزنة (لو موجودة) لسه صالحة
   useEffect(() => {
     verifyClientSession()
@@ -75,7 +85,9 @@ export default function App() {
 
       <nav className="tabs">
         <button className={view === 'main' ? 'tab active' : 'tab'} onClick={() => setView('main')}>الرئيسية</button>
-        <button className={view === 'settings' ? 'tab active' : 'tab'} onClick={() => setView('settings')}>الإعدادات</button>
+        {canSeeSettings && (
+          <button className={view === 'settings' ? 'tab active' : 'tab'} onClick={() => setView('settings')}>الإعدادات</button>
+        )}
         {clientAuth && view === 'main' && (
           <button className="tab" onClick={handleLogout}>خروج</button>
         )}

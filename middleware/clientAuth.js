@@ -1,7 +1,7 @@
 const { verifyClientToken } = require('../utils/clientToken');
 
 // بيحمي كل API بيانات الأصناف - العميل لازم يكون مسجل دخول (يوزر وباسورد
-// أداهوله الأدمن) عشان يوصل لبياناته هو بس. بيحط req.client = { id, clientName }
+// أداهوله الأدمن) عشان يوصل لبياناته هو بس. بيحط req.client = { id, clientName, role }
 // عشان الـ controllers تستخدمه في تحديد قاعدة بيانات العميل الصح.
 function clientAuth(req, res, next) {
   const header = req.headers.authorization || '';

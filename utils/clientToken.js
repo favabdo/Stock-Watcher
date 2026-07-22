@@ -14,10 +14,10 @@ function getSecret() {
 }
 
 // بيولد توكن لجلسة العميل بعد ما يسجل دخول بنجاح، بيحتوي بس على الآيدي والاسم
-// (من غير أي بيانات حساسة زي باسورد أو بيانات اتصال قاعدة البيانات)
+// والرول (من غير أي بيانات حساسة زي باسورد أو بيانات اتصال قاعدة البيانات)
 function signClientToken(client) {
   return jwt.sign(
-    { clientId: client.id, clientName: client.clientName },
+    { clientId: client.id, clientName: client.clientName, role: client.role ?? 0 },
     getSecret(),
     { expiresIn: TOKEN_TTL }
   );
@@ -27,7 +27,7 @@ function signClientToken(client) {
 function verifyClientToken(token) {
   try {
     const payload = jwt.verify(token, getSecret());
-    return { id: payload.clientId, clientName: payload.clientName };
+    return { id: payload.clientId, clientName: payload.clientName, role: payload.role ?? 0 };
   } catch (err) {
     return null;
   }

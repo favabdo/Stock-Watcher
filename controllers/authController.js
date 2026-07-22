@@ -23,7 +23,7 @@ async function login(req, res, next) {
     const token = signClientToken(client);
     res.json({
       token,
-      client: { id: client.id, clientName: client.clientName },
+      client: { id: client.id, clientName: client.clientName, role: client.role ?? 0 },
     });
   } catch (err) {
     next(err);

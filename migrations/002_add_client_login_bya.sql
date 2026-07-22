@@ -9,16 +9,12 @@ IF NOT EXISTS (
     WHERE object_id = OBJECT_ID('dbo.StockWatcherUsers_byA') AND name = 'LoginUsername'
 )
 BEGIN
-    ALTER TABLE dbo.StockWatcherUsers_byA ADD LoginUsername NVARCHAR(100) NULL;
-END
-
-IF NOT EXISTS (
-    SELECT 1 FROM sys.columns
-    WHERE object_id = OBJECT_ID('dbo.StockWatcherUsers_byA') AND name = 'LoginPasswordHash'
-)
-BEGIN
-    -- مشفر بـ bcrypt (utils/password.js) - مش نص صريح أبدًا
-    ALTER TABLE dbo.StockWatcherUsers_byA ADD LoginPasswordHash NVARCHAR(255) NULL;
+    -- بيضيف العمودين مع بعض في نفس الـ ALTER، فالجدول بيتعدل مرة واحدة بس
+    -- (أول مرة يتشغل فيها المايجريشن). بعد كده العمود بيبقى موجود، فالشيك
+    -- فوق هيمنع أي تعديل تاني على الجدول في أي تشغيل لاحق/ديبلوي جديد.
+    ALTER TABLE dbo.StockWatcherUsers_byA
+    ADD LoginUsername NVARCHAR(100) NULL,
+        LoginPasswordHash NVARCHAR(255) NULL; -- مشفر بـ bcrypt (utils/password.js) - مش نص صريح أبدًا
 END
 
 -- يوزر تسجيل الدخول لازم يكون فريد بين العملاء (بيسمح بأكتر من عميل من غير يوزر لسه،

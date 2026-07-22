@@ -13,6 +13,7 @@ const emptyForm = {
   whatsappPhone: '',
   loginUsername: '',
   loginPassword: '',
+  role: 0,
   isActive: true,
 };
 
@@ -216,6 +217,14 @@ export default function ClientsSettings() {
             <input value={form.whatsappPhone} onChange={(e) => setForm({ ...form, whatsappPhone: e.target.value })} placeholder="201012345678" />
           </div>
 
+          <div className="field">
+            <label>صلاحية العميل (Role)</label>
+            <select value={form.role ?? 0} onChange={(e) => setForm({ ...form, role: Number(e.target.value) })}>
+              <option value={0}>0 - يشوف الرئيسية والإعدادات</option>
+              <option value={1}>1 - يشوف الرئيسية بس</option>
+            </select>
+          </div>
+
           <div className="actions">
             <button onClick={handleSave} disabled={saving}>{saving ? 'جاري الحفظ...' : 'حفظ'}</button>
             <button className="btn-secondary" onClick={closeForm}>إلغاء</button>
@@ -231,7 +240,8 @@ export default function ClientsSettings() {
               <div className="client-card-header">
                 <div>
                   <strong>{client.clientName}</strong>{' '}
-                  <span className={client.isActive ? 'status-ok' : 'status-alert'}>{client.isActive ? 'نشط' : 'متوقف'}</span>
+                  <span className={client.isActive ? 'status-ok' : 'status-alert'}>{client.isActive ? 'نشط' : 'متوقف'}</span>{' '}
+                  <span className="hint">({(client.role ?? 0) === 0 ? 'Role 0 - رئيسية+إعدادات' : 'Role 1 - رئيسية بس'})</span>
                 </div>
                 <div className="client-card-actions">
                   <button onClick={() => handleCheckNow(client)} disabled={cr?.loading}>{cr?.loading ? 'جاري التشيك...' : 'تشيك دلوقتي'}</button>
