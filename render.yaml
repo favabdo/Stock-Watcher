@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: stock-watcher
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: DB_SERVER
+        sync: false
+      - key: DB_DATABASE
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_PORT
+        value: 1433
+      - key: DB_ENCRYPT
+        value: false
+      - key: DB_TRUST_CERT
+        value: true
+      - key: NODE_VERSION
+        value: 20.11.0
