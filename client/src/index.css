@@ -1,301 +1,903 @@
+/* ==========================================================================
+   Stock Watcher — نظام التصميم (Design System)
+   هوية بصرية: لوحة تحكم تشغيلية لمتابعة المخزون - هادئة، دقيقة، وواضحة في
+   حالات التنبيه. النقطة النابضة (pulse dot) بجانب كل صنف هي العنصر المميز:
+   بتنقل حالة المخزون بصريًا زي لوحات مراقبة الأنظمة التشغيلية.
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+:root {
+  /* ---------- الخط ---------- */
+  --font-sans: 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif;
+
+  /* ---------- الشبكة والمسافات (4px grid) ---------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* ---------- الانحناء ---------- */
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+
+  /* ---------- الألوان: الوضع الفاتح (افتراضي) ---------- */
+  --color-bg: #F6F7FA;
+  --color-bg-elevated: #FFFFFF;
+  --color-bg-subtle: #EFF1F5;
+  --color-border: #E2E6ED;
+  --color-border-strong: #CBD2DD;
+
+  --color-text: #14213D;
+  --color-text-secondary: #4B5566;
+  --color-text-muted: #8A93A3;
+
+  /* البراند: كحلي عميق - يوحي بالثقة والدقة التشغيلية */
+  --color-brand: #1E3A5F;
+  --color-brand-hover: #16304F;
+  --color-brand-contrast: #FFFFFF;
+  --color-brand-soft: #E8EDF4;
+
+  /* اللون المميز (Signature) - برتقالي دافئ لنقطة النبض وحالات الانتباه فقط */
+  --color-accent: #FF6B35;
+  --color-accent-hover: #E8551F;
+  --color-accent-soft: #FFEDE3;
+
+  --color-success: #12805C;
+  --color-success-bg: #E3F5EE;
+  --color-success-border: #BFE6D6;
+
+  --color-danger: #D7263D;
+  --color-danger-bg: #FCE9EC;
+  --color-danger-border: #F5C2CA;
+
+  --color-warning: #B4740E;
+  --color-warning-bg: #FCF1DC;
+  --color-warning-border: #F0D9A6;
+
+  --shadow-sm: 0 1px 2px rgba(20, 33, 61, 0.06), 0 1px 1px rgba(20, 33, 61, 0.04);
+  --shadow-md: 0 6px 20px rgba(20, 33, 61, 0.08), 0 2px 6px rgba(20, 33, 61, 0.04);
+  --shadow-lg: 0 16px 40px rgba(20, 33, 61, 0.14), 0 4px 12px rgba(20, 33, 61, 0.06);
+
+  --focus-ring: 0 0 0 3px rgba(255, 107, 53, 0.35);
+
+  color-scheme: light;
+}
+
+/* ---------- الألوان: الوضع الداكن ---------- */
+[data-theme='dark'] {
+  --color-bg: #0B1220;
+  --color-bg-elevated: #131C30;
+  --color-bg-subtle: #182238;
+  --color-border: #232E47;
+  --color-border-strong: #303D5C;
+
+  --color-text: #EAEFFA;
+  --color-text-secondary: #A7B1C7;
+  --color-text-muted: #6B7690;
+
+  --color-brand: #5B85C9;
+  --color-brand-hover: #729AD9;
+  --color-brand-contrast: #0B1220;
+  --color-brand-soft: #1B2946;
+
+  --color-accent: #FF8555;
+  --color-accent-hover: #FF9C6F;
+  --color-accent-soft: #3A2417;
+
+  --color-success: #35C08A;
+  --color-success-bg: #113228;
+  --color-success-border: #1D4E3C;
+
+  --color-danger: #F0616F;
+  --color-danger-bg: #3A1620;
+  --color-danger-border: #5A222F;
+
+  --color-warning: #E3A73F;
+  --color-warning-bg: #3A2C10;
+  --color-warning-border: #5A451C;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.45);
+
+  color-scheme: dark;
+}
+
+/* ========================================================================
+   إعادة الضبط الأساسية
+   ======================================================================== */
+
 * {
   box-sizing: border-box;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
-  font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
-  background: #f4f5f7;
+  font-family: var(--font-sans);
+  background: var(--color-bg);
+  color: var(--color-text);
   margin: 0;
-  padding: 24px;
-  color: #1f2430;
+  padding: var(--space-6) var(--space-4) var(--space-12);
+  line-height: 1.6;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+h1, h2, h3 {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+::selection {
+  background: var(--color-accent-soft);
+  color: var(--color-text);
+}
+
+a {
+  color: var(--color-brand);
+}
+
+/* حالة التركيز بالكيبورد - واضحة ومتسقة في كل التطبيق */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
+}
+
+/* ========================================================================
+   الحاوية الرئيسية
+   ======================================================================== */
+
+.app-shell {
+  max-width: 760px;
+  margin: 0 auto;
 }
 
 .container {
-  max-width: 720px;
-  margin: 0 auto;
-  background: #fff;
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-8);
+  box-shadow: var(--shadow-md);
 }
 
-h1 {
-  font-size: 20px;
-  margin: 0;
+@media (max-width: 640px) {
+  body {
+    padding: var(--space-3);
+  }
+  .container {
+    padding: var(--space-5);
+    border-radius: var(--radius-md);
+  }
 }
+
+/* ========================================================================
+   الرأس والعلامة التجارية
+   ======================================================================== */
 
 .brand-header {
   display: flex;
   align-items: center;
-  gap: 14px;
-  margin-bottom: 22px;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
 }
 
 .brand-logo {
-  height: 72px;
+  height: 56px;
   width: auto;
   flex-shrink: 0;
+  border-radius: var(--radius-sm);
+}
+
+.brand-header h1 {
+  font-size: 20px;
+  margin: 0;
+  color: var(--color-text);
 }
 
 .brand-subtitle {
   margin: 2px 0 0;
   font-size: 13px;
-  color: #666;
+  color: var(--color-text-muted);
 }
 
-.search-box {
+.brand-header-actions {
+  margin-inline-start: auto;
   display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
+  align-items: center;
+  gap: var(--space-2);
 }
 
-.search-box input {
-  flex: 1;
-  padding: 10px 12px;
-  border: 1px solid #d7dae0;
-  border-radius: 8px;
-  font-size: 16px;
+/* زرار تبديل الوضع الداكن/الفاتح */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-subtle);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
 }
+
+.theme-toggle:hover {
+  background: var(--color-border);
+  color: var(--color-text);
+}
+
+.theme-toggle svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* ========================================================================
+   التبويبات
+   ======================================================================== */
+
+.tabs {
+  display: flex;
+  gap: var(--space-1);
+  margin-bottom: var(--space-6);
+  padding: var(--space-1);
+  background: var(--color-bg-subtle);
+  border-radius: var(--radius-md);
+  width: fit-content;
+}
+
+.tab {
+  background: transparent;
+  color: var(--color-text-secondary);
+  padding: var(--space-2) var(--space-5);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: none;
+}
+
+.tab:hover {
+  background: var(--color-bg-elevated);
+  color: var(--color-text);
+}
+
+.tab.active {
+  background: var(--color-brand);
+  color: var(--color-brand-contrast);
+  box-shadow: var(--shadow-sm);
+}
+
+.tab.active:hover {
+  background: var(--color-brand-hover);
+}
+
+/* ========================================================================
+   الأزرار
+   ======================================================================== */
 
 button {
-  padding: 10px 16px;
+  font-family: inherit;
+  padding: 10px 18px;
   border: none;
-  border-radius: 8px;
-  background: #2a63d9;
-  color: #fff;
+  border-radius: var(--radius-sm);
+  background: var(--color-brand);
+  color: var(--color-brand-contrast);
   font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.05s ease, box-shadow 0.15s ease;
 }
 
 button:hover {
-  background: #1f4fb0;
+  background: var(--color-brand-hover);
+}
+
+button:active {
+  transform: translateY(1px);
 }
 
 button:disabled {
-  opacity: 0.6;
-  cursor: default;
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
 }
 
-.results-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 16px;
+/* إجراء ثانوي - أقل بروزًا من الإجراء الأساسي، عمدًا */
+.btn-secondary {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border-strong);
 }
 
-.result-item {
-  display: flex;
-  justify-content: space-between;
-  padding: 10px 12px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  cursor: pointer;
+.btn-secondary:hover {
+  background: var(--color-bg-subtle);
+  color: var(--color-text);
 }
 
-.result-item:hover {
-  background: #f0f4ff;
+/* إجراء تدميري - منفصل بصريًا وبوضوح عن باقي الإجراءات */
+.btn-danger {
+  background: transparent;
+  color: var(--color-danger);
+  border: 1px solid var(--color-danger-border);
 }
 
-.result-item.muted {
-  cursor: default;
-  color: #888;
+.btn-danger:hover {
+  background: var(--color-danger-bg);
 }
 
-.result-item.muted:hover {
-  background: none;
+/* إجراء التحقق من المخزون - مميز بلون النجاح لأنه إجراء إيجابي/معلوماتي */
+.btn-check {
+  background: var(--color-success);
 }
 
-.item-panel {
-  border-top: 1px solid #eee;
-  padding-top: 16px;
-  margin-top: 8px;
+.btn-check:hover {
+  background: #0E6B4D;
 }
+
+.btn-refresh {
+  font-size: 13px;
+  font-weight: 600;
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.btn-refresh:hover {
+  background: var(--color-bg-subtle);
+  color: var(--color-text);
+}
+
+/* ========================================================================
+   الحقول والنماذج
+   ======================================================================== */
 
 .field {
-  margin-bottom: 12px;
+  margin-bottom: var(--space-4);
 }
 
 .field label {
   display: block;
   font-size: 13px;
-  color: #555;
-  margin-bottom: 4px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-2);
 }
 
-.field input {
+input,
+select {
   width: 100%;
-  padding: 8px 10px;
-  border: 1px solid #d7dae0;
-  border-radius: 8px;
-  font-size: 16px;
+  font-family: inherit;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+  background: var(--color-bg-elevated);
+  color: var(--color-text);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+input::placeholder {
+  color: var(--color-text-muted);
+}
+
+input:focus,
+select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: var(--focus-ring);
+}
+
+input:disabled {
+  background: var(--color-bg-subtle);
+  color: var(--color-text-muted);
+}
+
+.field-row {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.field-row .field {
+  flex: 1;
+  min-width: 0;
+}
+
+.field-row.checkboxes {
+  align-items: center;
+  gap: var(--space-5);
+  margin-bottom: var(--space-4);
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+
+.field-row.checkboxes label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.field-row.checkboxes input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-brand);
+}
+
+@media (max-width: 640px) {
+  .field-row {
+    flex-direction: column;
+    gap: 0;
+  }
 }
 
 .actions {
   display: flex;
-  gap: 10px;
-  margin-top: 8px;
-}
-
-.btn-check {
-  background: #17824a;
-}
-
-.btn-check:hover {
-  background: #12653a;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
 }
 
 .msg {
-  margin-top: 10px;
+  margin-top: var(--space-3);
   font-size: 13px;
+  color: var(--color-text-secondary);
 }
 
 .error-text {
-  color: #b3261e;
+  color: var(--color-danger);
   font-size: 13px;
+  font-weight: 600;
 }
 
+.hint {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin-top: var(--space-3);
+}
+
+/* ========================================================================
+   مربع البحث ونتائجه
+   ======================================================================== */
+
+.search-box-wrap {
+  margin-bottom: var(--space-5);
+}
+
+.search-box {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.search-box input {
+  flex: 1;
+}
+
+.results-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.result-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  background: var(--color-bg-elevated);
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.result-item:hover {
+  border-color: var(--color-brand);
+  background: var(--color-brand-soft);
+}
+
+.result-item.muted {
+  cursor: default;
+  color: var(--color-text-muted);
+}
+
+.result-item.muted:hover {
+  background: var(--color-bg-elevated);
+  border-color: var(--color-border);
+}
+
+.result-item-name {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.result-item-code {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+/* ========================================================================
+   نقطة الحالة النابضة - العنصر المميز في التصميم
+   بتنقل حالة الصنف بصريًا (حرج / طبيعي) بدل الاعتماد على النص واللون بس
+   ======================================================================== */
+
+.status-dot {
+  position: relative;
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-dot::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  opacity: 0;
+  animation: status-pulse 2.2s ease-out infinite;
+}
+
+.status-dot.dot-danger {
+  background: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.status-dot.dot-success {
+  background: var(--color-success);
+  color: var(--color-success);
+}
+
+@keyframes status-pulse {
+  0% { opacity: 0.55; transform: scale(0.6); }
+  100% { opacity: 0; transform: scale(1.4); }
+}
+
+/* ========================================================================
+   الشارات (Badges)
+   ======================================================================== */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.badge-danger {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  border: 1px solid var(--color-danger-border);
+}
+
+.badge-success {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  border: 1px solid var(--color-success-border);
+}
+
+.badge-neutral {
+  background: var(--color-bg-subtle);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+
+/* ========================================================================
+   قسم الأصناف تحت حد إعادة الطلب
+   ======================================================================== */
+
+.low-stock-wrap {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
+  margin-bottom: var(--space-6);
+}
+
+.low-stock-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-4);
+  gap: var(--space-3);
+}
+
+.low-stock-header-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.low-stock-header h3 {
+  margin: 0;
+  font-size: 15px;
+  color: var(--color-text);
+}
+
+.low-stock-item .result-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--color-danger);
+}
+
+/* ========================================================================
+   لوحة تفاصيل الصنف
+   ======================================================================== */
+
+.item-panel {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-5);
+  margin-top: var(--space-2);
+}
+
+.item-panel h2 {
+  font-size: 17px;
+  margin: 0 0 var(--space-4);
+}
+
+/* ========================================================================
+   نتيجة التحقق من المخزون
+   ======================================================================== */
+
 .check-results {
-  margin-top: 20px;
-  border-top: 1px solid #eee;
-  padding-top: 16px;
+  margin-top: var(--space-6);
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-5);
+}
+
+.check-results h3 {
+  font-size: 15px;
+  margin: 0 0 var(--space-2);
+}
+
+.check-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.table-wrap {
+  margin-top: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: auto;
+  max-height: 360px;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 10px;
+  font-size: 13.5px;
 }
 
-th,
-td {
-  border: 1px solid #e5e7eb;
-  padding: 8px 10px;
-  font-size: 13px;
+th, td {
+  padding: var(--space-3) var(--space-3);
   text-align: center;
+  border-bottom: 1px solid var(--color-border);
 }
 
 th {
-  background: #f8f9fb;
+  position: sticky;
+  top: 0;
+  background: var(--color-bg-subtle);
+  color: var(--color-text-secondary);
+  font-weight: 700;
+  z-index: 1;
 }
 
-.hint {
-  font-size: 12px;
-  color: #888;
-  margin-top: 10px;
+tbody tr:hover {
+  background: var(--color-bg-subtle);
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
 }
 
 .status-alert {
-  color: #b3261e;
-  font-weight: bold;
+  color: var(--color-danger);
+  font-weight: 700;
 }
 
 .status-ok {
-  color: #1a7a3c;
+  color: var(--color-success);
+  font-weight: 700;
 }
 
-/* ============ Tabs ============ */
-.tabs {
+/* ========================================================================
+   حالات فارغة (Empty States)
+   ======================================================================== */
+
+.empty-state {
   display: flex;
-  gap: 6px;
-  margin-bottom: 18px;
-  border-bottom: 1px solid #eee;
-}
-
-.tab {
-  background: none;
-  color: #555;
-  padding: 8px 16px;
-  border-radius: 8px 8px 0 0;
-}
-
-.tab:hover {
-  background: #f0f4ff;
-}
-
-.tab.active {
-  background: #2a63d9;
-  color: #fff;
-}
-
-/* ============ Settings / Clients ============ */
-.settings-login {
-  max-width: 320px;
-  margin: 20px auto;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
+  padding: var(--space-8) var(--space-4);
+  color: var(--color-text-secondary);
+}
+
+.empty-state-icon {
+  width: 44px;
+  height: 44px;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-3);
+}
+
+.empty-state-icon.success {
+  color: var(--color-success);
+}
+
+.empty-state-title {
+  font-weight: 700;
+  color: var(--color-text);
+  font-size: 14.5px;
+  margin: 0 0 4px;
+}
+
+.empty-state-desc {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+/* ========================================================================
+   حالات التحميل (Skeletons)
+   ======================================================================== */
+
+.skeleton-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.skeleton-row {
+  height: 46px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    100deg,
+    var(--color-bg-subtle) 30%,
+    var(--color-border) 50%,
+    var(--color-bg-subtle) 70%
+  );
+  background-size: 250% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-row {
+    animation: none;
+  }
+}
+
+/* ========================================================================
+   تسجيل الدخول
+   ======================================================================== */
+
+.login-card {
+  max-width: 340px;
+  margin: var(--space-6) auto;
+  text-align: center;
+}
+
+.login-card h2 {
+  font-size: 18px;
+  margin: 0 0 var(--space-2);
+}
+
+.login-card .field {
+  text-align: right;
+}
+
+.login-card > button {
+  width: 100%;
+  margin-top: var(--space-2);
+}
+
+/* الأداة القديمة (بيرجع ليها settings-login) - نفس تنسيق login-card */
+.settings-login {
+  max-width: 340px;
+  margin: var(--space-6) auto;
+  text-align: center;
+}
+
+.settings-login h2 {
+  font-size: 18px;
+  margin: 0 0 var(--space-2);
 }
 
 .settings-login .field {
   text-align: right;
 }
 
+.settings-login > button {
+  width: 100%;
+  margin-top: var(--space-2);
+}
+
+/* ========================================================================
+   إعدادات العملاء
+   ======================================================================== */
+
 .settings-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: var(--space-5);
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.settings-header h2 {
+  font-size: 17px;
+  margin: 0;
 }
 
 .settings-header > div {
   display: flex;
-  gap: 8px;
-}
-
-.btn-secondary {
-  background: #6b7280;
-}
-
-.btn-secondary:hover {
-  background: #52586a;
-}
-
-.btn-danger {
-  background: #b3261e;
-}
-
-.btn-danger:hover {
-  background: #8c1e18;
+  gap: var(--space-2);
 }
 
 .client-form {
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 16px;
-  margin-bottom: 20px;
-  background: #fafbfc;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
+  margin-bottom: var(--space-5);
+  background: var(--color-bg-subtle);
 }
 
-.field-row {
-  display: flex;
-  gap: 12px;
-}
-
-.field-row .field {
-  flex: 1;
-}
-
-.field-row.checkboxes {
-  align-items: center;
-  gap: 20px;
-  margin-bottom: 12px;
-  font-size: 13px;
-}
-
-.field-row.checkboxes label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+.client-form h3 {
+  font-size: 15px;
+  margin: 0 0 var(--space-4);
 }
 
 .clients-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 .client-card {
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-bg-elevated);
 }
 
 .client-card-header {
@@ -303,54 +905,48 @@ th {
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-2);
+}
+
+.client-card-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.client-card-title strong {
+  font-size: 14.5px;
 }
 
 .client-card-actions {
   display: flex;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 .client-card-actions button {
-  padding: 6px 10px;
-  font-size: 12px;
+  padding: 7px 12px;
+  font-size: 12.5px;
 }
 
 .client-meta {
-  font-size: 12px;
-  color: #666;
-  margin: 6px 0 0;
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+  margin: var(--space-2) 0 0;
 }
 
-.low-stock-wrap {
-  border: 1px solid #fde2e2;
-  background: #fff8f8;
-  border-radius: 10px;
-  padding: 14px;
-  margin-bottom: 18px;
-}
-
-.low-stock-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.low-stock-header h3 {
-  margin: 0;
-  font-size: 15px;
-}
-
-.btn-refresh {
+.client-check-result {
+  margin-top: var(--space-2);
   font-size: 13px;
-  padding: 4px 10px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  background: #fff;
-  cursor: pointer;
+  font-weight: 600;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
 }
 
-.low-stock-item {
-  background: #fff;
+.client-check-result.status-alert {
+  background: var(--color-danger-bg);
+}
+
+.client-check-result.status-ok {
+  background: var(--color-success-bg);
 }

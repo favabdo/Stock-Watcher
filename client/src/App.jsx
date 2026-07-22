@@ -5,10 +5,13 @@ import ItemPanel from './components/ItemPanel';
 import CheckResults from './components/CheckResults';
 import ClientsSettings from './components/ClientsSettings';
 import ClientLogin from './components/ClientLogin';
+import ThemeToggle from './components/ThemeToggle';
+import useTheme from './hooks/useTheme';
 import { checkStock, getStoredClientAuth, verifyClientSession, logoutClient } from './api';
 import logo from './logo.png';
 
 export default function App() {
+  const { theme, toggleTheme } = useTheme();
   const [view, setView] = useState('main'); // 'main' | 'settings'
   const [clientAuth, setClientAuth] = useState(() => getStoredClientAuth());
   const [checkingSession, setCheckingSession] = useState(true);
@@ -80,54 +83,59 @@ export default function App() {
   }
 
   return (
-    <div className="container">
-      <header className="brand-header">
-        <img src={logo} alt="Stock Watcher" className="brand-logo" />
-        <div>
-          <h1>Stock Watcher</h1>
-          <p className="brand-subtitle">
-            {clientAuth ? clientAuth.client.clientName : 'إدارة حد إعادة الطلب (ReorderQty)'}
-          </p>
-        </div>
-      </header>
+    <div className="app-shell">
+      <div className="container">
+        <header className="brand-header">
+          <img src={logo} alt="Stock Watcher" className="brand-logo" />
+          <div>
+            <h1>Stock Watcher</h1>
+            <p className="brand-subtitle">
+              {clientAuth ? clientAuth.client.clientName : 'إدارة حد إعادة الطلب للمخزون'}
+            </p>
+          </div>
+          <div className="brand-header-actions">
+            <ThemeToggle theme={theme} onToggle={toggleTheme} />
+          </div>
+        </header>
 
-      <nav className="tabs">
-        <button className={view === 'main' ? 'tab active' : 'tab'} onClick={() => setView('main')}>الرئيسية</button>
-        {canSeeSettings && (
-          <button className={view === 'settings' ? 'tab active' : 'tab'} onClick={() => setView('settings')}>الإعدادات</button>
-        )}
-        {clientAuth && view === 'main' && (
-          <button className="tab" onClick={handleLogout}>خروج</button>
-        )}
-      </nav>
+        <nav className="tabs">
+          <button className={view === 'main' ? 'tab active' : 'tab'} onClick={() => setView('main')}>الرئيسية</button>
+          {canSeeSettings && (
+            <button className={view === 'settings' ? 'tab active' : 'tab'} onClick={() => setView('settings')}>الإعدادات</button>
+          )}
+          {clientAuth && view === 'main' && (
+            <button className="tab" onClick={handleLogout}>تسجيل الخروج</button>
+          )}
+        </nav>
 
-      {view === 'main' ? (
-        checkingSession ? (
-          <p className="hint">جاري التحقق من الجلسة...</p>
-        ) : !clientAuth ? (
-          <ClientLogin onLoggedIn={setClientAuth} />
+        {view === 'main' ? (
+          checkingSession ? (
+            <p className="hint">جارٍ التحقق من الجلسة...</p>
+          ) : !clientAuth ? (
+            <ClientLogin onLoggedIn={setClientAuth} />
+          ) : (
+            <>
+              <LowStockList onSelect={handleSelect} />
+
+              <SearchBox onSelect={handleSelect} onSearchStart={handleSearchStart} />
+
+              {selectedItem && (
+                <ItemPanel
+                  item={selectedItem}
+                  onUpdated={handleUpdated}
+                  onCheckStock={handleCheckStock}
+                  checking={checking}
+                />
+              )}
+
+              {checkError && <p className="error-text">{checkError}</p>}
+              <CheckResults data={checkData} />
+            </>
+          )
         ) : (
-          <>
-            <LowStockList onSelect={handleSelect} />
-
-            <SearchBox onSelect={handleSelect} onSearchStart={handleSearchStart} />
-
-            {selectedItem && (
-              <ItemPanel
-                item={selectedItem}
-                onUpdated={handleUpdated}
-                onCheckStock={handleCheckStock}
-                checking={checking}
-              />
-            )}
-
-            {checkError && <p className="error-text">{checkError}</p>}
-            <CheckResults data={checkData} />
-          </>
-        )
-      ) : (
-        <ClientsSettings />
-      )}
+          <ClientsSettings />
+        )}
+      </div>
     </div>
   );
 }

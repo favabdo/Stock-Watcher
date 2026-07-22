@@ -35,7 +35,7 @@ export default function ItemPanel({ item, onUpdated, onCheckStock, checking }) {
       </div>
 
       <div className="field">
-        <label>حد إعادة الطلب (ReorderQty)</label>
+        <label>حد إعادة الطلب</label>
         <input
           type="number"
           step="any"
@@ -46,10 +46,10 @@ export default function ItemPanel({ item, onUpdated, onCheckStock, checking }) {
 
       <div className="actions">
         <button onClick={handleSave} disabled={saving}>
-          {saving ? 'جاري الحفظ...' : 'حفظ الحد'}
+          {saving ? 'جارٍ الحفظ...' : 'حفظ الحد'}
         </button>
         <button className="btn-check" onClick={onCheckStock} disabled={checking}>
-          {checking ? 'جاري التشيك...' : 'تشيك الاستوك الآن'}
+          {checking ? 'جارٍ التحقق...' : 'التحقق من المخزون الآن'}
         </button>
       </div>
 

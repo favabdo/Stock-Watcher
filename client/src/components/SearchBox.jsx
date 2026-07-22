@@ -33,10 +33,10 @@ export default function SearchBox({ onSelect, onSearchStart }) {
           value={term}
           onChange={(e) => setTerm(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-          placeholder="ابحث بالكود أو الاسم..."
+          placeholder="ابحث بالكود أو اسم الصنف..."
         />
         <button onClick={handleSearch} disabled={loading}>
-          {loading ? '...جاري البحث' : 'بحث'}
+          {loading ? 'جارٍ البحث...' : 'بحث'}
         </button>
       </div>
 
@@ -44,12 +44,16 @@ export default function SearchBox({ onSelect, onSearchStart }) {
 
       <div className="results-list">
         {searched && !loading && !error && results.length === 0 && (
-          <div className="result-item muted">مفيش نتائج</div>
+          <div className="result-item muted">لا توجد نتائج مطابقة</div>
         )}
         {results.map((item) => (
           <div key={item.ID} className="result-item" onClick={() => onSelect(item)}>
-            <span>{item.Code} - {item.Name_Ar || item.Name_En || ''}</span>
-            <span>حد: {item.ReorderQty ?? 0}</span>
+            <span className="result-item-name">
+              <span className="result-item-code">{item.Code}</span>
+              {' — '}
+              {item.Name_Ar || item.Name_En || ''}
+            </span>
+            <span className="badge badge-neutral">الحد: {item.ReorderQty ?? 0}</span>
           </div>
         ))}
       </div>

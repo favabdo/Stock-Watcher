@@ -108,7 +108,7 @@ export default function ClientsSettings() {
   }
 
   async function handleDelete(client) {
-    if (!confirm(`متأكد إنك عايز تمسح العميل "${client.clientName}"؟`)) return;
+    if (!confirm(`هل أنت متأكد من حذف العميل "${client.clientName}"؟`)) return;
     try {
       await deleteClient(auth, client.id);
       await loadClients(auth);
@@ -131,17 +131,17 @@ export default function ClientsSettings() {
     return (
       <div className="settings-login">
         <h2>الإعدادات</h2>
-        <p className="hint">محتاج تسجيل دخول عشان تدخل على إعدادات العملاء.</p>
+        <p className="hint">يلزم تسجيل الدخول للوصول إلى إعدادات العملاء.</p>
         <div className="field">
-          <label>اليوزر</label>
+          <label>اسم المستخدم</label>
           <input value={loginUser} onChange={(e) => setLoginUser(e.target.value)} />
         </div>
         <div className="field">
-          <label>الباسورد</label>
+          <label>كلمة المرور</label>
           <input type="password" value={loginPass} onChange={(e) => setLoginPass(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleLogin()} />
         </div>
         {loginError && <p className="error-text">{loginError}</p>}
-        <button onClick={handleLogin}>دخول</button>
+        <button onClick={handleLogin}>تسجيل الدخول</button>
       </div>
     );
   }
@@ -151,17 +151,17 @@ export default function ClientsSettings() {
       <div className="settings-header">
         <h2>إعدادات العملاء</h2>
         <div>
-          <button onClick={openNewForm}>+ إضافة عميل</button>
-          <button className="btn-secondary" onClick={handleLogout}>خروج</button>
+          <button onClick={openNewForm}>+ إضافة عميل جديد</button>
+          <button className="btn-secondary" onClick={handleLogout}>تسجيل الخروج</button>
         </div>
       </div>
 
       {error && <p className="error-text">{error}</p>}
-      {loading && <p className="hint">جاري التحميل...</p>}
+      {loading && <p className="hint">جارٍ التحميل...</p>}
 
       {editingId && (
         <div className="client-form">
-          <h3>{editingId === 'new' ? 'عميل جديد' : 'تعديل عميل'}</h3>
+          <h3>{editingId === 'new' ? 'عميل جديد' : 'تعديل بيانات العميل'}</h3>
 
           <div className="field">
             <label>اسم العميل</label>
@@ -170,63 +170,63 @@ export default function ClientsSettings() {
 
           <div className="field-row">
             <div className="field">
-              <label>سيرفر قاعدة البيانات</label>
+              <label>عنوان خادم قاعدة البيانات</label>
               <input value={form.dbServer} onChange={(e) => setForm({ ...form, dbServer: e.target.value })} placeholder="مثال: 192.168.1.10" />
             </div>
             <div className="field">
-              <label>البورت</label>
+              <label>المنفذ (Port)</label>
               <input type="number" value={form.dbPort} onChange={(e) => setForm({ ...form, dbPort: Number(e.target.value) })} />
             </div>
           </div>
 
           <div className="field">
             <label>اسم قاعدة البيانات</label>
-            <input value={form.dbName} onChange={(e) => setForm({ ...form, dbName: e.target.value })} placeholder="اسم الداتا بيز اللي هيسحب منها البيانات" />
+            <input value={form.dbName} onChange={(e) => setForm({ ...form, dbName: e.target.value })} placeholder="اسم قاعدة البيانات المطلوب الاتصال بها" />
           </div>
 
           <div className="field-row">
             <div className="field">
-              <label>يوزر قاعدة البيانات</label>
+              <label>اسم مستخدم قاعدة البيانات</label>
               <input value={form.dbUser} onChange={(e) => setForm({ ...form, dbUser: e.target.value })} />
             </div>
             <div className="field">
-              <label>باسورد قاعدة البيانات {editingId !== 'new' && '(سيبه فاضي لو مش هتغيره)'}</label>
+              <label>كلمة مرور قاعدة البيانات {editingId !== 'new' && '(اتركه فارغًا للإبقاء على القيمة الحالية)'}</label>
               <input type="password" value={form.dbPassword} onChange={(e) => setForm({ ...form, dbPassword: e.target.value })} />
             </div>
           </div>
 
           <div className="field-row checkboxes">
-            <label><input type="checkbox" checked={form.dbEncrypt} onChange={(e) => setForm({ ...form, dbEncrypt: e.target.checked })} /> Encrypt</label>
-            <label><input type="checkbox" checked={form.dbTrustServerCertificate} onChange={(e) => setForm({ ...form, dbTrustServerCertificate: e.target.checked })} /> Trust Server Certificate</label>
+            <label><input type="checkbox" checked={form.dbEncrypt} onChange={(e) => setForm({ ...form, dbEncrypt: e.target.checked })} /> تشفير الاتصال (Encrypt)</label>
+            <label><input type="checkbox" checked={form.dbTrustServerCertificate} onChange={(e) => setForm({ ...form, dbTrustServerCertificate: e.target.checked })} /> الوثوق بشهادة الخادم</label>
             <label><input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} /> نشط</label>
           </div>
 
           <div className="field-row">
             <div className="field">
-              <label>يوزر تسجيل دخول العميل</label>
+              <label>اسم مستخدم دخول العميل</label>
               <input value={form.loginUsername} onChange={(e) => setForm({ ...form, loginUsername: e.target.value })} placeholder="مثال: nilestock" />
             </div>
             <div className="field">
-              <label>باسورد تسجيل دخول العميل {editingId !== 'new' && '(سيبه فاضي لو مش هتغيره)'}</label>
+              <label>كلمة مرور دخول العميل {editingId !== 'new' && '(اتركه فارغًا للإبقاء على القيمة الحالية)'}</label>
               <input type="password" value={form.loginPassword} onChange={(e) => setForm({ ...form, loginPassword: e.target.value })} />
             </div>
           </div>
 
           <div className="field">
-            <label>رقم واتساب العميل (بصيغة دولية، مثال 201012345678)</label>
+            <label>رقم واتساب العميل (بالصيغة الدولية، مثال 201012345678)</label>
             <input value={form.whatsappPhone} onChange={(e) => setForm({ ...form, whatsappPhone: e.target.value })} placeholder="201012345678" />
           </div>
 
           <div className="field">
-            <label>صلاحية العميل (Role)</label>
+            <label>صلاحية العميل</label>
             <select value={form.role ?? 0} onChange={(e) => setForm({ ...form, role: Number(e.target.value) })}>
-              <option value={0}>0 - يشوف الرئيسية والإعدادات</option>
-              <option value={1}>1 - يشوف الرئيسية بس</option>
+              <option value={0}>صلاحية كاملة — الرئيسية والإعدادات</option>
+              <option value={1}>صلاحية محدودة — الرئيسية فقط</option>
             </select>
           </div>
 
           <div className="actions">
-            <button onClick={handleSave} disabled={saving}>{saving ? 'جاري الحفظ...' : 'حفظ'}</button>
+            <button onClick={handleSave} disabled={saving}>{saving ? 'جارٍ الحفظ...' : 'حفظ'}</button>
             <button className="btn-secondary" onClick={closeForm}>إلغاء</button>
           </div>
         </div>
@@ -238,13 +238,20 @@ export default function ClientsSettings() {
           return (
             <div key={client.id} className="client-card">
               <div className="client-card-header">
-                <div>
-                  <strong>{client.clientName}</strong>{' '}
-                  <span className={client.isActive ? 'status-ok' : 'status-alert'}>{client.isActive ? 'نشط' : 'متوقف'}</span>{' '}
-                  <span className="hint">({(client.role ?? 0) === 0 ? 'Role 0 - رئيسية+إعدادات' : 'Role 1 - رئيسية بس'})</span>
+                <div className="client-card-title">
+                  <strong>{client.clientName}</strong>
+                  <span className={`badge ${client.isActive ? 'badge-success' : 'badge-danger'}`}>
+                    <span className={`status-dot ${client.isActive ? 'dot-success' : 'dot-danger'}`} aria-hidden="true" />
+                    {client.isActive ? 'نشط' : 'متوقف'}
+                  </span>
+                  <span className="badge badge-neutral">
+                    {(client.role ?? 0) === 0 ? 'صلاحية كاملة' : 'صلاحية محدودة'}
+                  </span>
                 </div>
                 <div className="client-card-actions">
-                  <button onClick={() => handleCheckNow(client)} disabled={cr?.loading}>{cr?.loading ? 'جاري التشيك...' : 'تشيك دلوقتي'}</button>
+                  <button onClick={() => handleCheckNow(client)} disabled={cr?.loading}>
+                    {cr?.loading ? 'جارٍ التحقق...' : 'تحقق الآن'}
+                  </button>
                   <button className="btn-secondary" onClick={() => openEditForm(client)}>تعديل</button>
                   <button className="btn-danger" onClick={() => handleDelete(client)}>حذف</button>
                 </div>
@@ -253,20 +260,29 @@ export default function ClientsSettings() {
                 {client.dbServer}:{client.dbPort} / {client.dbName} — واتساب: {client.whatsappPhone}
               </p>
               <p className="client-meta">
-                يوزر الدخول: {client.loginUsername || <span className="error-text">(مش متظبط - العميل مش هيقدر يسجل دخول)</span>}
+                اسم مستخدم الدخول: {client.loginUsername || <span className="error-text">غير محدد — لن يتمكن العميل من تسجيل الدخول</span>}
               </p>
-              {cr?.error && <p className="error-text">خطأ في التشيك: {cr.error}</p>}
+              {cr?.error && <p className="error-text">خطأ أثناء التحقق: {cr.error}</p>}
               {cr?.result && (
-                <p className={cr.result.belowThresholdCount > 0 ? 'status-alert' : 'status-ok'}>
+                <p className={`client-check-result ${cr.result.belowThresholdCount > 0 ? 'status-alert' : 'status-ok'}`}>
                   {cr.result.belowThresholdCount > 0
-                    ? `⚠️ ${cr.result.belowThresholdCount} حالة تحت حد إعادة الطلب - ${cr.result.whatsapp?.sent ? 'اتبعتت رسالة واتساب ✅' : `فشل إرسال الواتساب: ${cr.result.whatsapp?.error || ''}`}`
-                    : '✅ كل الأصناف فوق حد إعادة الطلب'}
+                    ? `⚠️ ${cr.result.belowThresholdCount} حالة بلغت حد إعادة الطلب — ${cr.result.whatsapp?.sent ? 'تم إرسال رسالة واتساب ✅' : `تعذّر إرسال واتساب: ${cr.result.whatsapp?.error || ''}`}`
+                    : '✅ جميع الأصناف فوق حد إعادة الطلب'}
                 </p>
               )}
             </div>
           );
         })}
-        {!loading && clients.length === 0 && <p className="hint">مفيش عملاء مضافين لسه.</p>}
+        {!loading && clients.length === 0 && (
+          <div className="empty-state">
+            <svg className="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3.5" y="7" width="17" height="12" rx="2" />
+              <path d="M8 7V5.5A2.5 2.5 0 0 1 10.5 3h3A2.5 2.5 0 0 1 16 5.5V7" />
+            </svg>
+            <p className="empty-state-title">لا يوجد عملاء مضافون بعد</p>
+            <p className="empty-state-desc">ابدأ بإضافة أول عميل لمتابعة مخزونه.</p>
+          </div>
+        )}
       </div>
     </div>
   );

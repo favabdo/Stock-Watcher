@@ -22,19 +22,31 @@ export default function ClientLogin({ onLoggedIn }) {
   }
 
   return (
-    <div className="settings-login">
+    <div className="login-card">
       <h2>تسجيل الدخول</h2>
-      <p className="hint">ادخل باليوزر والباسورد اللي معاك عشان تشوف بياناتك.</p>
+      <p className="hint">أدخل بيانات الدخول الخاصة بك لعرض بيانات مخزونك.</p>
       <div className="field">
-        <label>اليوزر</label>
-        <input value={username} onChange={(e) => setUsername(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleLogin()} />
+        <label>اسم المستخدم</label>
+        <input
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+          autoFocus
+        />
       </div>
       <div className="field">
-        <label>الباسورد</label>
-        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleLogin()} />
+        <label>كلمة المرور</label>
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+        />
       </div>
       {error && <p className="error-text">{error}</p>}
-      <button onClick={handleLogin} disabled={loading}>{loading ? 'جاري الدخول...' : 'دخول'}</button>
+      <button onClick={handleLogin} disabled={loading}>
+        {loading ? 'جارٍ تسجيل الدخول...' : 'تسجيل الدخول'}
+      </button>
     </div>
   );
 }
