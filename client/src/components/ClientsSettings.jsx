@@ -28,8 +28,8 @@ export default function ClientsSettings() {
 
   const [checkResults, setCheckResults] = useState({}); // clientId -> result
 
-  async function loadClients() {
-    setLoading(true);
+  async function loadClients({ silent = false } = {}) {
+    if (!silent) setLoading(true);
     setError('');
     try {
       const data = await listClients();
@@ -37,13 +37,25 @@ export default function ClientsSettings() {
     } catch (err) {
       setError(err.message);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }
 
   useEffect(() => {
     loadClients();
   }, []);
+
+  // ريفريش تلقائي لقائمة العملاء كل 30 ثانية، من غير ما يظهر "جارٍ التحميل"
+  // في كل مرة (silent). بيتوقف مؤقتًا لو فيه فورم إضافة/تعديل مفتوح عشان
+  // مايبوظش على الأدمن اللي بيكتبه دلوقتي.
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      if (editingId === null) {
+        loadClients({ silent: true });
+      }
+    }, 30000);
+    return () => clearInterval(intervalId);
+  }, [editingId]);
 
   function openNewForm() {
     setForm(emptyForm);

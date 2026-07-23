@@ -12,21 +12,40 @@ export default function LowStockList({ onSelect }) {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
 
-  async function load() {
-    setLoading(true);
+  async function load({ silent = false } = {}) {
+    if (!silent) setLoading(true);
     setError('');
     try {
       const data = await getLowStockItems();
       setRows(data);
+      // لو الصنف المفتوح دلوقتي مبقاش موجود في نتيجة التحديث (يعني رجع فوق
+      // حد إعادة الطلب)، اقفل تفاصيله تلقائيًا بدل ما يفضل ظاهر بيانات قديمة
+      setExpandedItem((current) => {
+        if (!current) return current;
+        const stillLow = data.some(({ item }) => item.ID === current.ID);
+        if (!stillLow) {
+          setDetailData(null);
+          setDetailError('');
+          return null;
+        }
+        return current;
+      });
     } catch (err) {
-      setError(err.message);
+      if (!silent) setError(err.message);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }
 
   useEffect(() => {
     load();
+  }, []);
+
+  // تحديث تلقائي كل 30 ثانية (Live query لقاعدة بيانات العميل زي بالظبط
+  // زرار "تحديث" اليدوي)، من غير ما يظهر سكيلتون التحميل في كل مرة (silent)
+  useEffect(() => {
+    const intervalId = setInterval(() => load({ silent: true }), 30000);
+    return () => clearInterval(intervalId);
   }, []);
 
   // بيتنده لما تدوس على أي صنف في القائمة - بيفتح/يقفل تفاصيله (زي نتيجة
