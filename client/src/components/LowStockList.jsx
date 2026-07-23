@@ -1,10 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getLowStockItems, checkStock } from '../api';
+
+const AUTO_REFRESH_MS = 5000; // 5 ثواني بدل 30 - حسّيًا بيبان "لحظي" من غير عبء حقيقي على قاعدة بيانات العميل
 
 export default function LowStockList({ onSelect }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const isFetchingRef = useRef(false); // بيمنع تراكم طلبات فوق بعض لو الاستعلام أخد وقت أطول من 5 ثواني
 
   // الصنف اللي التفاصيل بتاعته متفتحة دلوقتي (واحد بس في نفس الوقت - أكورديون)
   const [expandedItem, setExpandedItem] = useState(null);
@@ -13,6 +16,8 @@ export default function LowStockList({ onSelect }) {
   const [detailError, setDetailError] = useState('');
 
   async function load({ silent = false } = {}) {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
     if (!silent) setLoading(true);
     setError('');
     try {
@@ -34,6 +39,7 @@ export default function LowStockList({ onSelect }) {
       if (!silent) setError(err.message);
     } finally {
       if (!silent) setLoading(false);
+      isFetchingRef.current = false;
     }
   }
 
@@ -41,11 +47,41 @@ export default function LowStockList({ onSelect }) {
     load();
   }, []);
 
-  // تحديث تلقائي كل 30 ثانية (Live query لقاعدة بيانات العميل زي بالظبط
-  // زرار "تحديث" اليدوي)، من غير ما يظهر سكيلتون التحميل في كل مرة (silent)
+  // تحديث تلقائي كل 5 ثواني (Live query لقاعدة بيانات العميل زي بالظبط زرار
+  // "تحديث" اليدوي)، من غير ما يظهر سكيلتون التحميل في كل مرة (silent).
+  // بيتوقف تمامًا لو التاب/الشاشة مش ظاهرة قدام المستخدم عشان منحمّلش قاعدة
+  // بيانات العميل من غير داعي وهو مش بيتفرج، وبيرجع يحدّث فورًا أول ما يرجع.
   useEffect(() => {
-    const intervalId = setInterval(() => load({ silent: true }), 30000);
-    return () => clearInterval(intervalId);
+    let intervalId = null;
+
+    function startPolling() {
+      if (intervalId) return;
+      intervalId = setInterval(() => load({ silent: true }), AUTO_REFRESH_MS);
+    }
+
+    function stopPolling() {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    }
+
+    function handleVisibilityChange() {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        load({ silent: true }); // تحديث فوري أول ما المستخدم يرجع للتاب
+        startPolling();
+      }
+    }
+
+    if (!document.hidden) startPolling();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   // بيتنده لما تدوس على أي صنف في القائمة - بيفتح/يقفل تفاصيله (زي نتيجة
