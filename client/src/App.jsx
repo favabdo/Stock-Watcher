@@ -53,6 +53,7 @@ export default function App() {
   // نتيجة البحث حتى. بيخفي نتيجة تشيك الاستوك بتاعة الصنف القديم فورًا، عشان
   // مايفضلش ظاهر تحت نتايج البحث الجديدة وهو بيتكلم عن صنف تاني خالص.
   function handleSearchStart() {
+    setSelectedItem(null);
     setCheckData(null);
     setCheckError('');
   }

@@ -628,6 +628,7 @@ input:disabled {
   background: var(--color-bg-elevated);
   border-radius: var(--radius-md);
   padding: var(--space-5);
+  margin-top: var(--space-6);
   margin-bottom: var(--space-6);
 }
 
