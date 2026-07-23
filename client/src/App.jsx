@@ -115,9 +115,9 @@ export default function App() {
             <ClientLogin onLoggedIn={setClientAuth} />
           ) : (
             <>
-              <LowStockList onSelect={handleSelect} />
-
               <SearchBox onSelect={handleSelect} onSearchStart={handleSearchStart} />
+
+              <LowStockList onSelect={handleSelect} />
 
               {selectedItem && (
                 <ItemPanel
