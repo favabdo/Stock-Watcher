@@ -202,6 +202,9 @@ export default function ClientsSettings() {
               <p className="client-meta">
                 اسم مستخدم الدخول: {client.loginUsername || <span className="error-text">غير محدد — لن يتمكن العميل من تسجيل الدخول</span>}
               </p>
+              <p className="client-meta">
+                أضافه: {client.createdByAdminUsername || <span className="error-text">غير معروف</span>}
+              </p>
               {cr?.error && <p className="error-text">خطأ أثناء التحقق: {cr.error}</p>}
               {cr?.result && (
                 <p className={`client-check-result ${cr.result.belowThresholdCount > 0 ? 'status-alert' : 'status-ok'}`}>

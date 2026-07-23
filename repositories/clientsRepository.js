@@ -16,19 +16,24 @@ function mapRow(row) {
     loginUsername: row.LoginUsername || '',
     role: row.Role ?? 0,
     isActive: !!row.IsActive,
+    createdByAdminId: row.CreatedByAdminId ?? null,
+    createdByAdminUsername: row.CreatedByAdminUsername || null,
     createdAt: row.CreatedAt,
     updatedAt: row.UpdatedAt,
   };
 }
 
-// بيرجع كل العملاء من غير الباسورد (للعرض في صفحة الإعدادات)
+// بيرجع كل العملاء من غير الباسورد (للعرض في صفحة الإعدادات)، مع اسم الأدمن
+// اللي أضاف كل عميل (LEFT JOIN عشان العملاء القدام من غير أدمن محدد يفضلوا ظاهرين)
 async function getAllClients() {
   const pool = await getPool();
   const result = await pool.request().query(`
-    SELECT Id, ClientName, DbServer, DbName, DbUser, DbPort, DbEncrypt,
-           DbTrustServerCertificate, WhatsappPhone, LoginUsername, Role, IsActive, CreatedAt, UpdatedAt
-    FROM dbo.StockWatcherUsers_byA
-    ORDER BY Id
+    SELECT c.Id, c.ClientName, c.DbServer, c.DbName, c.DbUser, c.DbPort, c.DbEncrypt,
+           c.DbTrustServerCertificate, c.WhatsappPhone, c.LoginUsername, c.Role, c.IsActive,
+           c.CreatedByAdminId, a.Username AS CreatedByAdminUsername, c.CreatedAt, c.UpdatedAt
+    FROM dbo.StockWatcherUsers_byA c
+    LEFT JOIN dbo.stockwatcheradmin_byA a ON a.Id = c.CreatedByAdminId
+    ORDER BY c.Id
   `);
   return result.recordset.map(mapRow);
 }
@@ -95,7 +100,7 @@ async function getClientConnectionConfig(id) {
   };
 }
 
-async function createClient(data) {
+async function createClient(data, createdByAdminId) {
   const pool = await getPool();
   const request = pool.request();
   request.input('clientName', sql.NVarChar(200), data.clientName);
@@ -111,15 +116,16 @@ async function createClient(data) {
   request.input('loginPasswordHash', sql.NVarChar(255), await hashPassword(data.loginPassword));
   request.input('role', sql.TinyInt, Number(data.role) || 0);
   request.input('isActive', sql.Bit, data.isActive !== false);
+  request.input('createdByAdminId', sql.Int, createdByAdminId ?? null);
 
   const result = await request.query(`
     INSERT INTO dbo.StockWatcherUsers_byA
       (ClientName, DbServer, DbName, DbUser, DbPasswordEncrypted, DbPort,
-       DbEncrypt, DbTrustServerCertificate, WhatsappPhone, LoginUsername, LoginPasswordHash, Role, IsActive)
+       DbEncrypt, DbTrustServerCertificate, WhatsappPhone, LoginUsername, LoginPasswordHash, Role, IsActive, CreatedByAdminId)
     OUTPUT INSERTED.Id
     VALUES
       (@clientName, @dbServer, @dbName, @dbUser, @dbPasswordEncrypted, @dbPort,
-       @dbEncrypt, @dbTrustServerCertificate, @whatsappPhone, @loginUsername, @loginPasswordHash, @role, @isActive)
+       @dbEncrypt, @dbTrustServerCertificate, @whatsappPhone, @loginUsername, @loginPasswordHash, @role, @isActive, @createdByAdminId)
   `);
   return getClientById(result.recordset[0].Id);
 }

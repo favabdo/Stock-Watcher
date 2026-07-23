@@ -24,7 +24,7 @@ async function create(req, res, next) {
         error: 'لازم تحدد يوزر وباسورد تسجيل دخول للعميل عشان يقدر يشوف بياناته',
       });
     }
-    const client = await clientsRepository.createClient(req.body);
+    const client = await clientsRepository.createClient(req.body, req.admin?.id ?? null);
     res.status(201).json(client);
   } catch (err) {
     if (err.number === 2601 || err.number === 2627) {
