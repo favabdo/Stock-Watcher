@@ -83,7 +83,10 @@ async function sendWhatsappMessage(toPhone, messageText) {
 
   if (!res.ok) {
     const errMsg = data?.error?.message || `فشل إرسال رسالة واتساب (status ${res.status})`;
-    throw new Error(errMsg);
+    const errCode = data?.error?.code;
+    const errSubcode = data?.error?.error_subcode;
+    const errType = data?.error?.type;
+    throw new Error(`${errMsg}${errType ? ` [type=${errType}]` : ''}${errCode ? ` [code=${errCode}]` : ''}${errSubcode ? ` [subcode=${errSubcode}]` : ''}`);
   }
 
   return data;
