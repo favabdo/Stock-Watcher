@@ -661,6 +661,44 @@ input:disabled {
   color: var(--color-danger);
 }
 
+.low-stock-item-block {
+  display: flex;
+  flex-direction: column;
+}
+
+.low-stock-item.active {
+  border-color: var(--color-brand);
+  background: var(--color-brand-soft);
+}
+
+.low-stock-detail {
+  margin-top: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-top: none;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  background: var(--color-bg-subtle);
+}
+
+.low-stock-detail .table-wrap {
+  margin-top: var(--space-3);
+}
+
+.btn-edit-reorder {
+  margin-top: var(--space-4);
+  font-size: 13px;
+  font-weight: 600;
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  color: var(--color-brand);
+  border: 1px solid var(--color-brand);
+  border-radius: var(--radius-sm);
+}
+
+.btn-edit-reorder:hover {
+  background: var(--color-brand-soft);
+}
+
 /* ========================================================================
    لوحة تفاصيل الصنف
    ======================================================================== */

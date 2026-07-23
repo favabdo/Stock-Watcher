@@ -1,10 +1,16 @@
 import { useEffect, useState } from 'react';
-import { getLowStockItems } from '../api';
+import { getLowStockItems, checkStock } from '../api';
 
 export default function LowStockList({ onSelect }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // الصنف اللي التفاصيل بتاعته متفتحة دلوقتي (واحد بس في نفس الوقت - أكورديون)
+  const [expandedItem, setExpandedItem] = useState(null);
+  const [detailData, setDetailData] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState('');
 
   async function load() {
     setLoading(true);
@@ -22,6 +28,31 @@ export default function LowStockList({ onSelect }) {
   useEffect(() => {
     load();
   }, []);
+
+  // بيتنده لما تدوس على أي صنف في القائمة - بيفتح/يقفل تفاصيله (زي نتيجة
+  // التحقق من المخزون بالظبط) تحت الصنف نفسه مباشرة. لو دوست على صنف تاني
+  // وهو صنف مختلف، بيقفل القديم ويجيب تفاصيل الجديد بدل ما يفضلوا الاتنين فاتحين.
+  async function handleRowClick(item) {
+    if (expandedItem?.ID === item.ID) {
+      setExpandedItem(null);
+      setDetailData(null);
+      setDetailError('');
+      return;
+    }
+
+    setExpandedItem(item);
+    setDetailData(null);
+    setDetailError('');
+    setDetailLoading(true);
+    try {
+      const data = await checkStock(item.ID);
+      setDetailData(data);
+    } catch (err) {
+      setDetailError(err.message);
+    } finally {
+      setDetailLoading(false);
+    }
+  }
 
   return (
     <div className="low-stock-wrap">
@@ -63,19 +94,104 @@ export default function LowStockList({ onSelect }) {
 
       {!loading && !error && rows.length > 0 && (
         <div className="results-list">
-          {rows.map(({ item, branches }) => (
-            <div key={item.ID} className="result-item low-stock-item" onClick={() => onSelect(item)}>
-              <span className="result-item-name">
-                <span className="result-item-code">{item.Code}</span>
-                {' — '}
-                {item.Name_Ar || item.Name_En || ''}
-              </span>
-              <span className="result-item-meta">
-                <span className="status-dot dot-danger" aria-hidden="true" />
-                {branches.length} فرع تحت الحد ({item.ReorderQty ?? 0})
-              </span>
-            </div>
-          ))}
+          {rows.map(({ item, branches }) => {
+            const isExpanded = expandedItem?.ID === item.ID;
+            return (
+              <div key={item.ID} className="low-stock-item-block">
+                <div
+                  className={`result-item low-stock-item${isExpanded ? ' active' : ''}`}
+                  onClick={() => handleRowClick(item)}
+                >
+                  <span className="result-item-name">
+                    <span className="result-item-code">{item.Code}</span>
+                    {' — '}
+                    {item.Name_Ar || item.Name_En || ''}
+                  </span>
+                  <span className="result-item-meta">
+                    <span className="status-dot dot-danger" aria-hidden="true" />
+                    {branches.length} فرع تحت الحد ({item.ReorderQty ?? 0})
+                  </span>
+                </div>
+
+                {isExpanded && (
+                  <div className="low-stock-detail">
+                    {detailLoading && <p className="hint">جارٍ تحميل تفاصيل المخزون...</p>}
+
+                    {!detailLoading && detailError && (
+                      <p className="error-text">{detailError}</p>
+                    )}
+
+                    {!detailLoading && !detailError && detailData && (
+                      <>
+                        <p className="check-summary">
+                          <span
+                            className={`status-dot ${detailData.belowThreshold.length > 0 ? 'dot-danger' : 'dot-success'}`}
+                            aria-hidden="true"
+                          />
+                          {detailData.belowThreshold.length > 0
+                            ? `الصنف ${detailData.itemcode} بلغ حد إعادة الطلب أو أقل في ${detailData.belowThreshold.length} مخزن من أصل ${detailData.stores.length}`
+                            : `الصنف ${detailData.itemcode} فوق حد إعادة الطلب في جميع المخازن (${detailData.stores.length} مخزن)`}
+                        </p>
+
+                        <div className="table-wrap">
+                          <table>
+                            <thead>
+                              <tr>
+                                <th>المخزن</th>
+                                <th>الرصيد الحالي</th>
+                                <th>حد إعادة الطلب</th>
+                                <th>الناقص عن الحد</th>
+                                <th>الحالة</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {detailData.stores.map((s) => {
+                                const shortfall = s.belowThreshold
+                                  ? Math.max(0, s.reorderQty - s.transpkgqty1)
+                                  : 0;
+                                return (
+                                  <tr key={s.storeid}>
+                                    <td>{s.storename}</td>
+                                    <td>{s.transpkgqty1}</td>
+                                    <td>{s.reorderQty}</td>
+                                    <td>
+                                      {s.belowThreshold ? (
+                                        <span className="badge badge-danger">{shortfall}</span>
+                                      ) : (
+                                        '-'
+                                      )}
+                                    </td>
+                                    <td>
+                                      <span className={`badge ${s.belowThreshold ? 'badge-danger' : 'badge-success'}`}>
+                                        {s.belowThreshold ? 'تحت الحد' : 'طبيعي'}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {onSelect && (
+                          <button
+                            type="button"
+                            className="btn-edit-reorder"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSelect(item);
+                            }}
+                          >
+                            تعديل حد إعادة الطلب
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
