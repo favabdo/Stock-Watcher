@@ -3,32 +3,22 @@ import SearchBox from './components/SearchBox';
 import LowStockList from './components/LowStockList';
 import ItemPanel from './components/ItemPanel';
 import CheckResults from './components/CheckResults';
-import ClientsSettings from './components/ClientsSettings';
 import ClientLogin from './components/ClientLogin';
 import ThemeToggle from './components/ThemeToggle';
 import useTheme from './hooks/useTheme';
 import { checkStock, getStoredClientAuth, verifyClientSession, logoutClient } from './api';
 import logo from './logo.png';
 
+// صفحة اليوزر - منفصلة تمامًا عن صفحة الأدمن (client/src/AdminApp.jsx).
+// مفيش أي تاب أو زرار هنا بيوصل لإعدادات النظام أو للعملاء التانيين.
 export default function App() {
   const { theme, toggleTheme } = useTheme();
-  const [view, setView] = useState('main'); // 'main' | 'settings'
   const [clientAuth, setClientAuth] = useState(() => getStoredClientAuth());
   const [checkingSession, setCheckingSession] = useState(true);
   const [selectedItem, setSelectedItem] = useState(null);
   const [checkData, setCheckData] = useState(null);
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState('');
-
-  // Role 0 = شايف الرئيسية والإعدادات مع بعض، Role 1 = شايف الرئيسية بس
-  const canSeeSettings = !clientAuth || (clientAuth.client.role ?? 0) === 0;
-
-  // لو العميل مش شايف تاب الإعدادات (Role 1) وكان فاتحه قبل كده، رجّعه للرئيسية
-  useEffect(() => {
-    if (!canSeeSettings && view === 'settings') {
-      setView('main');
-    }
-  }, [canSeeSettings, view]);
 
   // أول ما التطبيق يفتح، بيتأكد إن جلسة الدخول المخزنة (لو موجودة) لسه صالحة
   useEffect(() => {
@@ -99,42 +89,34 @@ export default function App() {
           </div>
         </header>
 
-        <nav className="tabs">
-          <button className={view === 'main' ? 'tab active' : 'tab'} onClick={() => setView('main')}>الرئيسية</button>
-          {canSeeSettings && (
-            <button className={view === 'settings' ? 'tab active' : 'tab'} onClick={() => setView('settings')}>الإعدادات</button>
-          )}
-          {clientAuth && view === 'main' && (
+        {clientAuth && (
+          <nav className="tabs">
             <button className="tab" onClick={handleLogout}>تسجيل الخروج</button>
-          )}
-        </nav>
+          </nav>
+        )}
 
-        {view === 'main' ? (
-          checkingSession ? (
-            <p className="hint">جارٍ التحقق من الجلسة...</p>
-          ) : !clientAuth ? (
-            <ClientLogin onLoggedIn={setClientAuth} />
-          ) : (
-            <>
-              <SearchBox onSelect={handleSelect} onSearchStart={handleSearchStart} />
-
-              {selectedItem && (
-                <ItemPanel
-                  item={selectedItem}
-                  onUpdated={handleUpdated}
-                  onCheckStock={handleCheckStock}
-                  checking={checking}
-                />
-              )}
-
-              {checkError && <p className="error-text">{checkError}</p>}
-              <CheckResults data={checkData} />
-
-              <LowStockList onSelect={handleSelect} />
-            </>
-          )
+        {checkingSession ? (
+          <p className="hint">جارٍ التحقق من الجلسة...</p>
+        ) : !clientAuth ? (
+          <ClientLogin onLoggedIn={setClientAuth} />
         ) : (
-          <ClientsSettings />
+          <>
+            <SearchBox onSelect={handleSelect} onSearchStart={handleSearchStart} />
+
+            {selectedItem && (
+              <ItemPanel
+                item={selectedItem}
+                onUpdated={handleUpdated}
+                onCheckStock={handleCheckStock}
+                checking={checking}
+              />
+            )}
+
+            {checkError && <p className="error-text">{checkError}</p>}
+            <CheckResults data={checkData} />
+
+            <LowStockList onSelect={handleSelect} />
+          </>
         )}
       </div>
     </div>

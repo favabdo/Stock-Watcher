@@ -4,6 +4,7 @@ const path = require('path');
 const itemsRoutes = require('./routes/items.routes');
 const clientsRoutes = require('./routes/clients.routes');
 const authRoutes = require('./routes/auth.routes');
+const adminAuthRoutes = require('./routes/adminAuth.routes');
 const scheduledCheckJob = require('./jobs/scheduledCheckJob');
 
 const app = express();
@@ -15,8 +16,16 @@ app.get('/health', (req, res) => res.status(200).json({ status: 'ok' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminAuthRoutes);
 app.use('/api/items', itemsRoutes);
 app.use('/api/clients', clientsRoutes);
+
+// صفحة الأدمن (/admin) صفحة منفصلة تمامًا عن صفحة اليوزر على مستوى الفرونت
+// إند (باندل واحد، بس بيقرر يعرض إيه على حسب المسار). لازم نرجّع index.html
+// لأي مسار مش /api عشان الراوت ده يشتغل حتى لو حد فتح /admin مباشرة أو عمل ريفريش.
+app.get(/^\/(?!api\/).*/, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // Error handler
 app.use((err, req, res, next) => {

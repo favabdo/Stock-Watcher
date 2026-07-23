@@ -90,60 +90,113 @@ export async function checkStock(id) {
   return data;
 }
 
-// ============ إدارة العملاء (Multi-tenant Settings) ============
-const CLIENTS_BASE = '/api/clients';
+// ============ تسجيل دخول الأدمن (لوحة تحكم /admin - منفصلة تمامًا عن اليوزر) ============
+const ADMIN_AUTH_KEY = 'stockWatcherAdminAuth';
 
-function authHeaders(auth) {
-  if (!auth || !auth.user) return {};
-  const encoded = btoa(`${auth.user}:${auth.pass}`);
-  return { Authorization: `Basic ${encoded}` };
+export function getStoredAdminAuth() {
+  const saved = localStorage.getItem(ADMIN_AUTH_KEY);
+  return saved ? JSON.parse(saved) : null;
 }
 
-async function handleClientsResponse(res) {
-  if (res.status === 401) {
-    throw new Error('يوزر أو باسورد الإعدادات غلط');
+function adminAuthHeaders() {
+  const auth = getStoredAdminAuth();
+  return auth?.token ? { Authorization: `Bearer ${auth.token}` } : {};
+}
+
+export async function loginAdmin(username, password) {
+  const res = await fetch('/api/admin/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'فشل تسجيل الدخول');
+  localStorage.setItem(ADMIN_AUTH_KEY, JSON.stringify(data));
+  return data;
+}
+
+export function logoutAdmin() {
+  localStorage.removeItem(ADMIN_AUTH_KEY);
+}
+
+// بيتأكد إن جلسة الأدمن المخزنة لسه صالحة (بيتنده بيه أول ما لوحة التحكم تفتح)
+export async function verifyAdminSession() {
+  const auth = getStoredAdminAuth();
+  if (!auth?.token) return null;
+  const res = await fetch('/api/admin/me', { headers: adminAuthHeaders() });
+  if (!res.ok) {
+    logoutAdmin();
+    return null;
   }
+  return auth;
+}
+
+async function adminFetch(url, options = {}) {
+  const res = await fetch(url, {
+    ...options,
+    headers: { ...(options.headers || {}), ...adminAuthHeaders() },
+  });
+  if (res.status === 401) {
+    logoutAdmin();
+    window.dispatchEvent(new Event('admin-auth-expired'));
+  }
+  return res;
+}
+
+async function handleAdminResponse(res) {
   if (res.status === 204) return null;
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || 'حصل خطأ');
   return data;
 }
 
-export async function listClients(auth) {
-  const res = await fetch(CLIENTS_BASE, { headers: { ...authHeaders(auth) } });
-  return handleClientsResponse(res);
+// ============ إدارة حسابات الأدمن نفسها ============
+export async function listAdmins() {
+  const res = await adminFetch('/api/admin/admins');
+  return handleAdminResponse(res);
 }
 
-export async function createClient(auth, payload) {
-  const res = await fetch(CLIENTS_BASE, {
+export async function createAdminUser(username, password) {
+  const res = await adminFetch('/api/admin/admins', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeaders(auth) },
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+  return handleAdminResponse(res);
+}
+
+// ============ إدارة العملاء (Multi-tenant Settings) ============
+const CLIENTS_BASE = '/api/clients';
+
+export async function listClients() {
+  const res = await adminFetch(CLIENTS_BASE);
+  return handleAdminResponse(res);
+}
+
+export async function createClient(payload) {
+  const res = await adminFetch(CLIENTS_BASE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  return handleClientsResponse(res);
+  return handleAdminResponse(res);
 }
 
-export async function updateClient(auth, id, payload) {
-  const res = await fetch(`${CLIENTS_BASE}/${id}`, {
+export async function updateClient(id, payload) {
+  const res = await adminFetch(`${CLIENTS_BASE}/${id}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...authHeaders(auth) },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  return handleClientsResponse(res);
+  return handleAdminResponse(res);
 }
 
-export async function deleteClient(auth, id) {
-  const res = await fetch(`${CLIENTS_BASE}/${id}`, {
-    method: 'DELETE',
-    headers: { ...authHeaders(auth) },
-  });
-  return handleClientsResponse(res);
+export async function deleteClient(id) {
+  const res = await adminFetch(`${CLIENTS_BASE}/${id}`, { method: 'DELETE' });
+  return handleAdminResponse(res);
 }
 
-export async function checkClientNow(auth, id) {
-  const res = await fetch(`${CLIENTS_BASE}/${id}/check-now`, {
-    method: 'POST',
-    headers: { ...authHeaders(auth) },
-  });
-  return handleClientsResponse(res);
+export async function checkClientNow(id) {
+  const res = await adminFetch(`${CLIENTS_BASE}/${id}/check-now`, { method: 'POST' });
+  return handleAdminResponse(res);
 }

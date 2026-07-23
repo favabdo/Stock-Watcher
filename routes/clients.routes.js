@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const clientsController = require('../controllers/clientsController');
-const basicAuth = require('../middleware/basicAuth');
+const adminAuth = require('../middleware/adminAuth');
 
-router.use(basicAuth);
+router.use(adminAuth);
 
 router.get('/', clientsController.list);
 router.post('/', clientsController.create);

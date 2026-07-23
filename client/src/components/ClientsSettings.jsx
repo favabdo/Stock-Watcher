@@ -18,14 +18,6 @@ const emptyForm = {
 };
 
 export default function ClientsSettings() {
-  const [auth, setAuth] = useState(() => {
-    const saved = localStorage.getItem('stockWatcherSettingsAuth');
-    return saved ? JSON.parse(saved) : null;
-  });
-  const [loginUser, setLoginUser] = useState('');
-  const [loginPass, setLoginPass] = useState('');
-  const [loginError, setLoginError] = useState('');
-
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -36,43 +28,22 @@ export default function ClientsSettings() {
 
   const [checkResults, setCheckResults] = useState({}); // clientId -> result
 
-  async function loadClients(currentAuth) {
+  async function loadClients() {
     setLoading(true);
     setError('');
     try {
-      const data = await listClients(currentAuth);
+      const data = await listClients();
       setClients(data);
     } catch (err) {
       setError(err.message);
-      if (err.message.includes('غلط')) {
-        setAuth(null);
-        localStorage.removeItem('stockWatcherSettingsAuth');
-      }
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    if (auth) loadClients(auth);
-  }, [auth]);
-
-  function handleLogin() {
-    setLoginError('');
-    const candidateAuth = { user: loginUser, pass: loginPass };
-    listClients(candidateAuth)
-      .then((data) => {
-        setClients(data);
-        setAuth(candidateAuth);
-        localStorage.setItem('stockWatcherSettingsAuth', JSON.stringify(candidateAuth));
-      })
-      .catch((err) => setLoginError(err.message));
-  }
-
-  function handleLogout() {
-    setAuth(null);
-    localStorage.removeItem('stockWatcherSettingsAuth');
-  }
+    loadClients();
+  }, []);
 
   function openNewForm() {
     setForm(emptyForm);
@@ -94,12 +65,12 @@ export default function ClientsSettings() {
     setError('');
     try {
       if (editingId === 'new') {
-        await createClient(auth, form);
+        await createClient(form);
       } else {
-        await updateClient(auth, editingId, form);
+        await updateClient(editingId, form);
       }
       closeForm();
-      await loadClients(auth);
+      await loadClients();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -110,8 +81,8 @@ export default function ClientsSettings() {
   async function handleDelete(client) {
     if (!confirm(`هل أنت متأكد من حذف العميل "${client.clientName}"؟`)) return;
     try {
-      await deleteClient(auth, client.id);
-      await loadClients(auth);
+      await deleteClient(client.id);
+      await loadClients();
     } catch (err) {
       setError(err.message);
     }
@@ -120,30 +91,11 @@ export default function ClientsSettings() {
   async function handleCheckNow(client) {
     setCheckResults((prev) => ({ ...prev, [client.id]: { loading: true } }));
     try {
-      const result = await checkClientNow(auth, client.id);
+      const result = await checkClientNow(client.id);
       setCheckResults((prev) => ({ ...prev, [client.id]: { loading: false, result } }));
     } catch (err) {
       setCheckResults((prev) => ({ ...prev, [client.id]: { loading: false, error: err.message } }));
     }
-  }
-
-  if (!auth) {
-    return (
-      <div className="settings-login">
-        <h2>الإعدادات</h2>
-        <p className="hint">يلزم تسجيل الدخول للوصول إلى إعدادات العملاء.</p>
-        <div className="field">
-          <label>اسم المستخدم</label>
-          <input value={loginUser} onChange={(e) => setLoginUser(e.target.value)} />
-        </div>
-        <div className="field">
-          <label>كلمة المرور</label>
-          <input type="password" value={loginPass} onChange={(e) => setLoginPass(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleLogin()} />
-        </div>
-        {loginError && <p className="error-text">{loginError}</p>}
-        <button onClick={handleLogin}>تسجيل الدخول</button>
-      </div>
-    );
   }
 
   return (
@@ -152,7 +104,6 @@ export default function ClientsSettings() {
         <h2>إعدادات العملاء</h2>
         <div>
           <button onClick={openNewForm}>+ إضافة عميل جديد</button>
-          <button className="btn-secondary" onClick={handleLogout}>تسجيل الخروج</button>
         </div>
       </div>
 
@@ -217,14 +168,6 @@ export default function ClientsSettings() {
             <input value={form.whatsappPhone} onChange={(e) => setForm({ ...form, whatsappPhone: e.target.value })} placeholder="201012345678" />
           </div>
 
-          <div className="field">
-            <label>صلاحية العميل</label>
-            <select value={form.role ?? 0} onChange={(e) => setForm({ ...form, role: Number(e.target.value) })}>
-              <option value={0}>صلاحية كاملة — الرئيسية والإعدادات</option>
-              <option value={1}>صلاحية محدودة — الرئيسية فقط</option>
-            </select>
-          </div>
-
           <div className="actions">
             <button onClick={handleSave} disabled={saving}>{saving ? 'جارٍ الحفظ...' : 'حفظ'}</button>
             <button className="btn-secondary" onClick={closeForm}>إلغاء</button>
@@ -243,9 +186,6 @@ export default function ClientsSettings() {
                   <span className={`badge ${client.isActive ? 'badge-success' : 'badge-danger'}`}>
                     <span className={`status-dot ${client.isActive ? 'dot-success' : 'dot-danger'}`} aria-hidden="true" />
                     {client.isActive ? 'نشط' : 'متوقف'}
-                  </span>
-                  <span className="badge badge-neutral">
-                    {(client.role ?? 0) === 0 ? 'صلاحية كاملة' : 'صلاحية محدودة'}
                   </span>
                 </div>
                 <div className="client-card-actions">
