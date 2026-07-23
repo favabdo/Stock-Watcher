@@ -117,8 +117,6 @@ export default function App() {
             <>
               <SearchBox onSelect={handleSelect} onSearchStart={handleSearchStart} />
 
-              <LowStockList onSelect={handleSelect} />
-
               {selectedItem && (
                 <ItemPanel
                   item={selectedItem}
@@ -130,6 +128,8 @@ export default function App() {
 
               {checkError && <p className="error-text">{checkError}</p>}
               <CheckResults data={checkData} />
+
+              <LowStockList onSelect={handleSelect} />
             </>
           )
         ) : (
