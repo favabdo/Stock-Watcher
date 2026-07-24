@@ -69,7 +69,9 @@ async function sendWhatsappMessage(toPhone, messageText) {
       text: { body: messageText },
     };
   }
-
+  console.log("========== WHATSAPP PAYLOAD ==========");
+  console.log(JSON.stringify(body, null, 2));
+  console.log("======================================");
   const res = await fetch(url, {
     method: 'POST',
     headers: {
