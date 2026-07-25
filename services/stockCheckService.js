@@ -9,7 +9,7 @@ const MAX_LINES_IN_MESSAGE = 30;
 function buildWhatsappMessage(clientName, item, belowThreshold) {
   const itemName = item.Name_Ar || item.Name_En || item.Code;
   const lines = [];
-  lines.push(`⚠️ تنبيه Stock Watcher - ${clientName}`);
+  lines.push(` تنبيه   - ${clientName}`);
   lines.push(`الصنف ${item.Code} - ${itemName} وصل لحد إعادة الطلب أو أقل في ${belowThreshold.length} مخزن:`);
   lines.push('');
 
