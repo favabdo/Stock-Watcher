@@ -96,13 +96,18 @@ async function sendWhatsappMessage(toPhone, messageText) {
   return data;
 }
 
-// الأرقام دلوقتي ممكن تتخزن بشكلين في عمود WhatsappPhone:
-//   - الشكل الجديد: JSON زي [{"phone":"201012345678","enabled":true}, ...]
-//     بيسمح إن كل رقم يتفعّل/يتعطّل لوحده.
-//   - الشكل القديم (قبل ميزة التعطيل): نص عادي رقم أو أرقام مفصولة بفاصلة/
-//     فاصلة منقوطة/سطر جديد - بيتعامل معاه كأن كل الأرقام دي مفعّلة.
-function parsePhoneEntries(phonesRaw) {
-  const raw = String(phonesRaw || '').trim();
+// أرقام واتساب العميل دلوقتي بتتخزن في جدول مستقل (StockWatcherClientPhones_byA)
+// وبتوصل هنا كمصفوفة جاهزة [{phone, enabled}, ...] من clientPhonesRepository -
+// مش نص محتاج parsing زي قبل كده. الدالة دي لسه بتقبل الشكلين القديمين
+// (JSON قديم أو نص/أرقام مفصولة بفاصلة) للتوافق مع أي نداء قديم لسه موجود.
+function parsePhoneEntries(phones) {
+  if (Array.isArray(phones)) {
+    return phones
+      .map((p) => ({ phone: String(p.phone || '').trim(), enabled: p.enabled !== false }))
+      .filter((p) => p.phone);
+  }
+
+  const raw = String(phones || '').trim();
   if (!raw) return [];
 
   try {

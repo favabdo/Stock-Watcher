@@ -29,7 +29,7 @@ function buildWhatsappMessage(clientName, item, belowThreshold) {
 // liveReorderQty >= 0  -> الصنف وصل لحد إعادة الطلب أو تجاوزه (لازم تنبيه)
 // liveReorderQty < 0   -> الرصيد لسه فوق الحد، مفيش مشكلة
 //
-// clientInfo (اختياري): { clientName, whatsappPhone } - لو موجود وفيه مخازن
+// clientInfo (اختياري): { clientName, whatsappPhones } - لو موجود وفيه مخازن
 // تحت الحد، بتتبعت رسالة واتساب حقيقية زي بالظبط اللي بيبعتها الفحص التلقائي
 // في الصفحة الرئيسية (مش مجرد طباعة في الكونسول زي قبل كده).
 async function checkItemAcrossStores(pool, itemId, clientInfo = null) {
@@ -64,10 +64,10 @@ async function checkItemAcrossStores(pool, itemId, clientInfo = null) {
       `وصل لحد إعادة الطلب أو أقل في ${belowThreshold.length} مخزن.`
     );
 
-    if (clientInfo && clientInfo.whatsappPhone) {
+    if (clientInfo && clientInfo.whatsappPhones && clientInfo.whatsappPhones.length > 0) {
       const message = buildWhatsappMessage(clientInfo.clientName, item, belowThreshold);
       try {
-        whatsappResult = await whatsappService.sendWhatsappMessageToMany(clientInfo.whatsappPhone, message);
+        whatsappResult = await whatsappService.sendWhatsappMessageToMany(clientInfo.whatsappPhones, message);
         console.log(`[StockCheck] اتبعتت رسالة واتساب تنبيه للصنف ${item.Code}`);
       } catch (err) {
         whatsappResult = { sent: false, error: err.message };

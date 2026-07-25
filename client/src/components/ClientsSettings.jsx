@@ -17,39 +17,20 @@ const emptyForm = {
   isActive: true,
 };
 
-// الباك إند بيخزن الأرقام في عمود واحد (whatsappPhone) كـ JSON فيه لكل رقم
-// حالة تفعيل/تعطيل. الدالتين دول بيحولوا بين الشكل ده والمصفوفة اللي الفورم
-// شغال بيها. لو القيمة المخزنة قديمة (نص عادي أو أرقام بفاصلة من قبل ميزة
-// التعطيل) بتتحول تلقائيًا لمصفوفة كلها مفعّلة.
-function phonesStringToArray(phonesString) {
-  const raw = String(phonesString || '').trim();
-  if (!raw) return [{ phone: '', enabled: true }];
-
-  try {
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
-      const entries = parsed
-        .map((p) => ({ phone: String(p.phone || '').trim(), enabled: p.enabled !== false }))
-        .filter((p) => p.phone);
-      return entries.length > 0 ? entries : [{ phone: '', enabled: true }];
-    }
-  } catch {
-    // مش JSON - يبقى الشكل القديم، هنكمل تحت
-  }
-
-  const entries = raw
-    .split(/[,;\n]+/)
-    .map((p) => p.trim())
-    .filter(Boolean)
-    .map((phone) => ({ phone, enabled: true }));
+// أرقام واتساب العميل بقت متخزنة في جدول منفصل مربوط بـ ClientId (مش عمود
+// ثابت الطول)، وبتوصل من الباك إند جاهزة كمصفوفة [{phone, enabled}, ...].
+// الدالة دي بترجع نسخة آمنة للفورم (لو مفيش أرقام، بتحط حقل فاضي واحد
+// عشان الفورم دايمًا يكون فيه سطر إدخال ظاهر).
+function phonesForForm(whatsappPhones) {
+  const entries = (whatsappPhones || [])
+    .map((p) => ({ phone: String(p.phone || ''), enabled: p.enabled !== false }));
   return entries.length > 0 ? entries : [{ phone: '', enabled: true }];
 }
 
-function phonesArrayToString(entries) {
-  const cleaned = entries
+function cleanPhonesForSave(entries) {
+  return entries
     .map((e) => ({ phone: e.phone.trim(), enabled: e.enabled !== false }))
     .filter((e) => e.phone);
-  return JSON.stringify(cleaned);
 }
 
 export default function ClientsSettings() {
@@ -102,7 +83,7 @@ export default function ClientsSettings() {
       ...client,
       dbPassword: '',
       loginPassword: '', // الباسوردات بتفضل فاضية، تتحدث بس لو كتب باسورد جديد
-      whatsappPhones: phonesStringToArray(client.whatsappPhone),
+      whatsappPhones: phonesForForm(client.whatsappPhones),
     });
     setEditingId(client.id);
   }
@@ -143,8 +124,7 @@ export default function ClientsSettings() {
     setSaving(true);
     setError('');
     try {
-      const payload = { ...form, whatsappPhone: phonesArrayToString(form.whatsappPhones) };
-      delete payload.whatsappPhones;
+      const payload = { ...form, whatsappPhones: cleanPhonesForSave(form.whatsappPhones) };
       if (editingId === 'new') {
         await createClient(payload);
       } else {
@@ -302,9 +282,11 @@ export default function ClientsSettings() {
               </div>
               <p className="client-meta">
                 {client.dbServer}:{client.dbPort} / {client.dbName} — واتساب:{' '}
-                {phonesStringToArray(client.whatsappPhone)
-                  .map((e) => (e.enabled ? e.phone : `${e.phone} (معطل)`))
-                  .join('، ')}
+                {client.whatsappPhones && client.whatsappPhones.length > 0
+                  ? client.whatsappPhones
+                      .map((e) => (e.enabled ? e.phone : `${e.phone} (معطل)`))
+                      .join('، ')
+                  : 'مفيش أرقام مسجلة'}
               </p>
               <p className="client-meta">
                 اسم مستخدم الدخول: {client.loginUsername || <span className="error-text">غير محدد — لن يتمكن العميل من تسجيل الدخول</span>}

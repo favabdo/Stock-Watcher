@@ -12,7 +12,7 @@ async function getClientPool(req) {
 }
 
 // زي getClientPool بالظبط بس بيرجع كمان بيانات العميل (clientName,
-// whatsappPhone, ...) - مطلوبة في checkController عشان تقدر تبعت رسالة
+// whatsappPhones, ...) - مطلوبة في checkController عشان تقدر تبعت رسالة
 // واتساب التنبيه بنفس اسم/رقم العميل زي الفحص التلقائي في الصفحة الرئيسية.
 async function getClientPoolAndConfig(req) {
   const fullConfig = await clientsRepository.getClientConnectionConfig(req.client.id);

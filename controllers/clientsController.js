@@ -13,10 +13,11 @@ async function list(req, res, next) {
 
 async function create(req, res, next) {
   try {
-    const { clientName, dbServer, dbName, dbUser, dbPassword, whatsappPhone, loginUsername, loginPassword } = req.body;
-    if (!clientName || !dbServer || !dbName || !dbUser || !dbPassword || !whatsappPhone) {
+    const { clientName, dbServer, dbName, dbUser, dbPassword, whatsappPhones, loginUsername, loginPassword } = req.body;
+    const hasAtLeastOnePhone = Array.isArray(whatsappPhones) && whatsappPhones.some((p) => String(p?.phone || '').trim());
+    if (!clientName || !dbServer || !dbName || !dbUser || !dbPassword || !hasAtLeastOnePhone) {
       return res.status(400).json({
-        error: 'لازم تملى: اسم العميل، السيرفر، اسم قاعدة البيانات، اليوزر، الباسورد، ورقم الواتساب',
+        error: 'لازم تملى: اسم العميل، السيرفر، اسم قاعدة البيانات، اليوزر، الباسورد، ورقم واتساب واحد على الأقل',
       });
     }
     if (!loginUsername || !loginPassword) {

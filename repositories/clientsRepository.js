@@ -1,8 +1,12 @@
 const { sql, getPool } = require('../config/db');
 const { encrypt, decrypt } = require('../utils/crypto');
 const { hashPassword } = require('../utils/password');
+const clientPhonesRepository = require('./clientPhonesRepository');
 
-function mapRow(row) {
+// أرقام واتساب العميل بقت في جدول منفصل (StockWatcherClientPhones_byA)
+// مربوط بـ ClientId، مش عمود ثابت الطول في نفس جدول العميل زي قبل كده - كده
+// أي عدد أرقام تتضاف لعميل واحد ما بيعملش أي مشكلة في الطول.
+function mapRow(row, phones = []) {
   return {
     id: row.Id,
     clientName: row.ClientName,
@@ -12,7 +16,7 @@ function mapRow(row) {
     dbPort: row.DbPort,
     dbEncrypt: !!row.DbEncrypt,
     dbTrustServerCertificate: !!row.DbTrustServerCertificate,
-    whatsappPhone: row.WhatsappPhone,
+    whatsappPhones: phones.map((p) => ({ phone: p.phone, enabled: p.enabled })),
     loginUsername: row.LoginUsername || '',
     role: row.Role ?? 0,
     isActive: !!row.IsActive,
@@ -25,17 +29,20 @@ function mapRow(row) {
 
 // بيرجع كل العملاء من غير الباسورد (للعرض في صفحة الإعدادات)، مع اسم الأدمن
 // اللي أضاف كل عميل (LEFT JOIN عشان العملاء القدام من غير أدمن محدد يفضلوا ظاهرين)
+// وأرقام واتساب كل عميل (نداء واحد إضافي بس لكل العملاء مع بعض، مش عميل عميل).
 async function getAllClients() {
   const pool = await getPool();
   const result = await pool.request().query(`
     SELECT c.Id, c.ClientName, c.DbServer, c.DbName, c.DbUser, c.DbPort, c.DbEncrypt,
-           c.DbTrustServerCertificate, c.WhatsappPhone, c.LoginUsername, c.Role, c.IsActive,
+           c.DbTrustServerCertificate, c.LoginUsername, c.Role, c.IsActive,
            c.CreatedByAdminId, a.Username AS CreatedByAdminUsername, c.CreatedAt, c.UpdatedAt
     FROM dbo.StockWatcherUsers_byA c
     LEFT JOIN dbo.stockwatcheradmin_byA a ON a.Id = c.CreatedByAdminId
     ORDER BY c.Id
   `);
-  return result.recordset.map(mapRow);
+  const rows = result.recordset;
+  const phonesByClient = await clientPhonesRepository.getPhonesForClients(rows.map((r) => r.Id));
+  return rows.map((row) => mapRow(row, phonesByClient.get(row.Id) || []));
 }
 
 async function getActiveClients() {
@@ -79,12 +86,13 @@ async function getClientConnectionConfig(id) {
   request.input('id', sql.Int, id);
   const result = await request.query(`
     SELECT Id, ClientName, DbServer, DbName, DbUser, DbPasswordEncrypted, DbPort,
-           DbEncrypt, DbTrustServerCertificate, WhatsappPhone, IsActive
+           DbEncrypt, DbTrustServerCertificate, IsActive
     FROM dbo.StockWatcherUsers_byA
     WHERE Id = @id
   `);
   const row = result.recordset[0];
   if (!row) return null;
+  const phones = await clientPhonesRepository.getPhonesForClient(row.Id);
   return {
     id: row.Id,
     clientName: row.ClientName,
@@ -95,7 +103,7 @@ async function getClientConnectionConfig(id) {
     dbPort: row.DbPort,
     dbEncrypt: !!row.DbEncrypt,
     dbTrustServerCertificate: !!row.DbTrustServerCertificate,
-    whatsappPhone: row.WhatsappPhone,
+    whatsappPhones: phones.map((p) => ({ phone: p.phone, enabled: p.enabled })),
     isActive: !!row.IsActive,
   };
 }
@@ -111,7 +119,6 @@ async function createClient(data, createdByAdminId) {
   request.input('dbPort', sql.Int, data.dbPort || 1433);
   request.input('dbEncrypt', sql.Bit, !!data.dbEncrypt);
   request.input('dbTrustServerCertificate', sql.Bit, data.dbTrustServerCertificate !== false);
-  request.input('whatsappPhone', sql.NVarChar(30), data.whatsappPhone);
   request.input('loginUsername', sql.NVarChar(100), data.loginUsername);
   request.input('loginPasswordHash', sql.NVarChar(255), await hashPassword(data.loginPassword));
   request.input('role', sql.TinyInt, Number(data.role) || 0);
@@ -121,13 +128,17 @@ async function createClient(data, createdByAdminId) {
   const result = await request.query(`
     INSERT INTO dbo.StockWatcherUsers_byA
       (ClientName, DbServer, DbName, DbUser, DbPasswordEncrypted, DbPort,
-       DbEncrypt, DbTrustServerCertificate, WhatsappPhone, LoginUsername, LoginPasswordHash, Role, IsActive, CreatedByAdminId)
+       DbEncrypt, DbTrustServerCertificate, LoginUsername, LoginPasswordHash, Role, IsActive, CreatedByAdminId)
     OUTPUT INSERTED.Id
     VALUES
       (@clientName, @dbServer, @dbName, @dbUser, @dbPasswordEncrypted, @dbPort,
-       @dbEncrypt, @dbTrustServerCertificate, @whatsappPhone, @loginUsername, @loginPasswordHash, @role, @isActive, @createdByAdminId)
+       @dbEncrypt, @dbTrustServerCertificate, @loginUsername, @loginPasswordHash, @role, @isActive, @createdByAdminId)
   `);
-  return getClientById(result.recordset[0].Id);
+  const newId = result.recordset[0].Id;
+  // الأرقام دلوقتي بتتخزن كصفوف مستقلة في جدول منفصل مربوط بـ ClientId، مش
+  // في عمود ثابت الطول - فمهما كان عدد الأرقام مفيش أي مشكلة.
+  await clientPhonesRepository.replacePhonesForClient(newId, data.whatsappPhones);
+  return getClientById(newId);
 }
 
 async function updateClient(id, data) {
@@ -141,7 +152,6 @@ async function updateClient(id, data) {
   request.input('dbPort', sql.Int, data.dbPort || 1433);
   request.input('dbEncrypt', sql.Bit, !!data.dbEncrypt);
   request.input('dbTrustServerCertificate', sql.Bit, data.dbTrustServerCertificate !== false);
-  request.input('whatsappPhone', sql.NVarChar(30), data.whatsappPhone);
   request.input('loginUsername', sql.NVarChar(100), data.loginUsername);
   request.input('role', sql.TinyInt, Number(data.role) || 0);
   request.input('isActive', sql.Bit, data.isActive !== false);
@@ -169,7 +179,6 @@ async function updateClient(id, data) {
         DbPort = @dbPort,
         DbEncrypt = @dbEncrypt,
         DbTrustServerCertificate = @dbTrustServerCertificate,
-        WhatsappPhone = @whatsappPhone,
         LoginUsername = @loginUsername,
         Role = @role,
         IsActive = @isActive,
@@ -178,6 +187,9 @@ async function updateClient(id, data) {
         ${loginPasswordSetClause}
     WHERE Id = @id
   `);
+  // بيستبدل كل أرقام العميل ده بالمجموعة الجديدة اللي جاية من الفورم (إضافة/
+  // حذف/تعطيل رقم بيتبعت كمجموعة كاملة من الفرونت إند في كل حفظ).
+  await clientPhonesRepository.replacePhonesForClient(id, data.whatsappPhones);
   return getClientById(id);
 }
 

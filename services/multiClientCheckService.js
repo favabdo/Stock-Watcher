@@ -91,7 +91,7 @@ async function runCheckForClient(clientConnectionConfig, { onlyNewAlerts = false
     });
     try {
       whatsappResult = await whatsappService.sendWhatsappMessageToMany(
-        clientConnectionConfig.whatsappPhone,
+        clientConnectionConfig.whatsappPhones,
         message
       );
       console.log(
