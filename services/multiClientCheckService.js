@@ -5,21 +5,20 @@ const whatsappService = require('./whatsappService');
 const MAX_LINES_IN_MESSAGE = 30;
 
 function buildWhatsappMessage(clientName, belowThreshold) {
-  const lines = [];
-  lines.push(`⚠️ تنبيه Stock Watcher - ${clientName}`);
-  lines.push(`فيه ${belowThreshold.length} حالة وصلت لحد إعادة الطلب أو أقل منه:`);
-  lines.push('');
+  const parts = [];
+  parts.push(`تنبيه Stock Watcher - ${clientName}.`);
+  parts.push(`فيه ${belowThreshold.length} حالة وصلت لحد إعادة الطلب أو أقل منه:`);
 
   belowThreshold.slice(0, MAX_LINES_IN_MESSAGE).forEach((row, i) => {
     const name = row.Name_Ar || row.Name_En || row.Code;
-    lines.push(`${i + 1}) ${row.Code} - ${name} | ${row.storename}: الاستوك ${row.transpkgqty1} (الحد ${row.ReorderQty})`);
+    parts.push(`${i + 1}) ${row.Code} - ${name} - ${row.storename}: الاستوك ${row.transpkgqty1} (الحد ${row.ReorderQty}).`);
   });
 
   if (belowThreshold.length > MAX_LINES_IN_MESSAGE) {
-    lines.push(`... و ${belowThreshold.length - MAX_LINES_IN_MESSAGE} حالة تانية`);
+    parts.push(`و ${belowThreshold.length - MAX_LINES_IN_MESSAGE} حالة تانية.`);
   }
 
-  return lines.join('\n');
+  return parts.join(' ');
 }
 
 // بيفحص كل الأصناف اللي وصلت لحد إعادة الطلب أو أقل في أي مخزن، عن طريق نداء

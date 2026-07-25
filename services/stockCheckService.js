@@ -8,20 +8,19 @@ const MAX_LINES_IN_MESSAGE = 30;
 // بس مخصصة لصنف واحد مع كل المخازن اللي وصل فيها لحد إعادة الطلب أو أقل.
 function buildWhatsappMessage(clientName, item, belowThreshold) {
   const itemName = item.Name_Ar || item.Name_En || item.Code;
-  const lines = [];
-  lines.push(` تنبيه   - ${clientName}`);
-  lines.push(`الصنف ${item.Code} - ${itemName} وصل لحد إعادة الطلب أو أقل في ${belowThreshold.length} مخزن:`);
-  lines.push('');
+  const parts = [];
+  parts.push(`تنبيه - ${clientName}.`);
+  parts.push(`الصنف ${item.Code} - ${itemName} وصل لحد إعادة الطلب أو أقل في ${belowThreshold.length} مخزن:`);
 
   belowThreshold.slice(0, MAX_LINES_IN_MESSAGE).forEach((s, i) => {
-    lines.push(`${i + 1}) ${s.storename}: الاستوك ${s.transpkgqty1} (الحد ${s.reorderQty})`);
+    parts.push(`${i + 1}) ${s.storename}: الاستوك ${s.transpkgqty1} (الحد ${s.reorderQty}).`);
   });
 
   if (belowThreshold.length > MAX_LINES_IN_MESSAGE) {
-    lines.push(`... و ${belowThreshold.length - MAX_LINES_IN_MESSAGE} مخزن تاني`);
+    parts.push(`و ${belowThreshold.length - MAX_LINES_IN_MESSAGE} مخزن تاني.`);
   }
 
-  return lines.join('\n');
+  return parts.join(' ');
 }
 
 // بيتشيك على صنف معين في كل المخازن (مش الفروع) عن طريق البروسيدر
