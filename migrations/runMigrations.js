@@ -28,6 +28,7 @@ async function runMigrations(pool) {
 
   console.log(`[Migrations] هيتم فحص/تشغيل ${files.length} ملف migration...`);
 
+  let hadFailure = false;
   for (const file of files) {
     const filePath = path.join(migrationsDir, file);
     const sqlText = fs.readFileSync(filePath, 'utf8').trim();
@@ -38,12 +39,19 @@ async function runMigrations(pool) {
       await pool.request().batch(sqlText);
       console.log(`[Migrations] ✔ تم تنفيذ/التأكد من: ${file}`);
     } catch (err) {
-      console.error(`[Migrations] ✘ فشل تنفيذ ${file}:`, err.message);
-      throw err;
+      hadFailure = true;
+      // بنكمل باقي الملفات بدل ما نوقف كل الترحيل - ملف واحد بايظ (مثلاً
+      // بيستخدم دالة SQL مش متاحة في نسخة السيرفر) ميفضلش يمنع باقي
+      // المايجريشنز اللي بعده من الشغل.
+      console.error(`[Migrations] ✘ فشل تنفيذ ${file} (هيتم تخطيه والمتابعة للي بعده):`, err.message);
     }
   }
 
-  console.log('[Migrations] تم التأكد من كل الجداول المطلوبة.');
+  if (hadFailure) {
+    console.error('[Migrations] بعض ملفات الـ migration فشلت - راجع اللوج فوق واتأكد إن الجداول المطلوبة اتعملت صح.');
+  } else {
+    console.log('[Migrations] تم التأكد من كل الجداول المطلوبة.');
+  }
 }
 
 module.exports = runMigrations;

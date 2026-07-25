@@ -5,8 +5,15 @@
 -- ON DELETE CASCADE - لو العميل اتمسح، أرقامه بتتمسح معاه أوتوماتيك).
 --
 -- كده مهما ضفت أرقام كتير لعميل واحد، مفيش أي حد لطول عمود ثابت زي كان بيحصل
--- قبل كده (العمود القديم WhatsappPhone كان NVARCHAR فبيحصل خطأ SQL Server لو
--- الطول زاد عن المتاح). كل رقم دلوقتي صف مستقل، تقدر تضيف قد ما تحب.
+-- قبل كده.
+--
+-- ملحوظة: السكريبت ده بيستخدم بس أوامر SQL أساسية (CREATE TABLE / INDEX)
+-- عشان يشتغل على أي نسخة SQL Server (من غير الاعتماد على OPENJSON/
+-- STRING_SPLIT اللي محتاجة SQL Server 2016+ وcompatibility level 130+ - لو
+-- الداتابيز أقدم من كده، الباتش كله كان بيفشل في الـ compile من غير ما
+-- الجدول يتعمل أصلاً). ترحيل الأرقام القديمة من العمود القديم بقى بيحصل من
+-- كود Node.js نفسه (migrations/legacyPhonesMigration.js) بدل T-SQL، عشان
+-- يشتغل بنفس الطريقة على أي نسخة SQL Server.
 
 IF NOT EXISTS (
     SELECT 1 FROM sys.tables WHERE name = 'StockWatcherClientPhones_byA'
@@ -23,47 +30,21 @@ BEGIN
             FOREIGN KEY (ClientId) REFERENCES dbo.StockWatcherUsers_byA (Id)
             ON DELETE CASCADE
     );
+END
 
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes
+    WHERE name = 'IX_StockWatcherClientPhones_byA_ClientId'
+          AND object_id = OBJECT_ID('dbo.StockWatcherClientPhones_byA')
+)
+BEGIN
     CREATE INDEX IX_StockWatcherClientPhones_byA_ClientId
         ON dbo.StockWatcherClientPhones_byA (ClientId);
 END
 
--- ترحيل الأرقام القديمة المخزنة في عمود WhatsappPhone (سواء بصيغة JSON
--- الجديدة [{"phone":"...","enabled":true}] أو الصيغة الأقدم نص واحد/أرقام
--- مفصولة بفاصلة) للجدول الجديد - مرة واحدة بس، وبيتجاهل أي عميل اترحّل
--- أرقامه بالفعل (عشان تقدر تشغل السكريبت أكتر من مرة بأمان).
-IF EXISTS (
-    SELECT 1 FROM sys.columns
-    WHERE object_id = OBJECT_ID('dbo.StockWatcherUsers_byA') AND name = 'WhatsappPhone'
-)
-BEGIN
-    -- الحالة الأولى: القيمة JSON صحيحة (الصيغة الجديدة اللي فيها enabled)
-    INSERT INTO dbo.StockWatcherClientPhones_byA (ClientId, Phone, Enabled)
-    SELECT u.Id, LTRIM(RTRIM(j.phone)), ISNULL(j.enabled, 1)
-    FROM dbo.StockWatcherUsers_byA u
-    CROSS APPLY OPENJSON(u.WhatsappPhone)
-        WITH (phone NVARCHAR(30) '$.phone', enabled BIT '$.enabled') AS j
-    WHERE ISJSON(u.WhatsappPhone) = 1
-      AND LTRIM(RTRIM(ISNULL(j.phone, ''))) <> ''
-      AND NOT EXISTS (
-          SELECT 1 FROM dbo.StockWatcherClientPhones_byA p WHERE p.ClientId = u.Id
-      );
-
-    -- الحالة التانية: القيمة مش JSON - نص واحد أو أرقام مفصولة بفاصلة/فاصلة
-    -- منقوطة/سطر جديد (الصيغة الأقدم قبل ميزة التعطيل)
-    INSERT INTO dbo.StockWatcherClientPhones_byA (ClientId, Phone, Enabled)
-    SELECT u.Id, LTRIM(RTRIM(s.value)), 1
-    FROM dbo.StockWatcherUsers_byA u
-    CROSS APPLY STRING_SPLIT(REPLACE(REPLACE(u.WhatsappPhone, ';', ','), CHAR(10), ','), ',') AS s
-    WHERE ISJSON(u.WhatsappPhone) = 0
-      AND LTRIM(RTRIM(s.value)) <> ''
-      AND NOT EXISTS (
-          SELECT 1 FROM dbo.StockWatcherClientPhones_byA p WHERE p.ClientId = u.Id
-      );
-END
-
--- بعد ما تتأكد إن الترحيل تم بنجاح (راجع بيانات الجدول الجديد ووازنها بعمود
--- WhatsappPhone القديم)، السيرفر بقى مش بيستخدم العمود ده خالص. تقدر تشيله
--- لو عايز (اختياري - مش لازم تشغّل السطر ده دلوقتي):
+-- بعد ما تتأكد إن الترحيل تم بنجاح (شوف لوج السيرفر وقت ما يبدأ - سطر بيبدأ
+-- بـ [LegacyPhonesMigration]) ووازنها ببيانات عمود WhatsappPhone القديم،
+-- السيرفر بقى مش بيستخدم العمود ده خالص. تقدر تشيله لو عايز (اختياري - مش
+-- لازم تشغّل السطر ده دلوقتي):
 --
 -- ALTER TABLE dbo.StockWatcherUsers_byA DROP COLUMN WhatsappPhone;
