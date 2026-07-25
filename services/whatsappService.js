@@ -82,7 +82,9 @@ async function sendWhatsappMessage(toPhone, messageText) {
   });
 
   const data = await res.json().catch(() => ({}));
-
+  console.log("========== META RESPONSE ==========");
+  console.log(JSON.stringify(data, null, 2));
+  console.log("==================================");
   if (!res.ok) {
     const errMsg = data?.error?.message || `فشل إرسال رسالة واتساب (status ${res.status})`;
     const errCode = data?.error?.code;
