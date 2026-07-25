@@ -1,13 +1,18 @@
 const clientPoolManager = require('./clientPoolManager');
 const stockRepository = require('../repositories/stockRepository');
 const whatsappService = require('./whatsappService');
+const alertsRepository = require('../repositories/alertsRepository');
 
 const MAX_LINES_IN_MESSAGE = 30;
 
-function buildWhatsappMessage(clientName, belowThreshold) {
+function buildWhatsappMessage(clientName, belowThreshold, { onlyNew = false } = {}) {
   const parts = [];
   parts.push(`تنبيه Stock Watcher - ${clientName}.`);
-  parts.push(`فيه ${belowThreshold.length} حالة وصلت لحد إعادة الطلب أو أقل منه:`);
+  parts.push(
+    onlyNew
+      ? `فيه ${belowThreshold.length} صنف جديد وصل لحد إعادة الطلب أو أقل منه:`
+      : `فيه ${belowThreshold.length} حالة وصلت لحد إعادة الطلب أو أقل منه:`
+  );
 
   belowThreshold.slice(0, MAX_LINES_IN_MESSAGE).forEach((row, i) => {
     const name = row.Name_Ar || row.Name_En || row.Code;
@@ -47,20 +52,51 @@ async function checkAllItemsAcrossBranches(pool) {
     }));
 }
 
-// بيشغل الفحص الكامل لعميل معين، ولو فيه أي حالة تحت الحد بيبعت رسالة واتساب
-// واحدة مجمعة لرقم العميل المتظبط في إعداداته.
-async function runCheckForClient(clientConnectionConfig) {
+// بيشغل الفحص الكامل لعميل معين.
+//
+// options.onlyNewAlerts:
+//   - false (افتراضي، ده اللي بيستخدمه زرار "تحقق الآن" اليدوي في صفحة
+//     الإعدادات) -> بيبعت رسالة واحدة مجمعة فيها كل الحالات تحت الحد، زي ما
+//     كان بالظبط، لأن ده فحص يدوي مقصود من الأدمن عايز يشوف الصورة كاملة.
+//   - true (ده اللي بيستخدمه الفحص التلقائي المجدول scheduledCheckJob) ->
+//     بيقارن مع الحالات "المفتوحة" المحفوظة من آخر فحص (alertsRepository)
+//     وبيبعت تنبيه بس عن الأصناف الجديدة اللي لسه ما اتبعتش عنها تنبيه، عشان
+//     التنبيه يوصل فورًا أول ما الصنف يظهر من غير ما يتكرر نفس التنبيه في كل
+//     فحص طول ما الصنف لسه تحت الحد.
+async function runCheckForClient(clientConnectionConfig, { onlyNewAlerts = false } = {}) {
   const pool = await clientPoolManager.getPoolForClient(clientConnectionConfig);
   const belowThreshold = await checkAllItemsAcrossBranches(pool);
 
-  let whatsappResult = null;
-  if (belowThreshold.length > 0) {
-    const message = buildWhatsappMessage(clientConnectionConfig.clientName, belowThreshold);
-    try {
-      await whatsappService.sendWhatsappMessage(clientConnectionConfig.whatsappPhone, message);
-      whatsappResult = { sent: true };
+  let itemsToNotify = belowThreshold;
+  let newAlertsCount = null;
+
+  if (onlyNewAlerts) {
+    const { newAlerts, resolvedCount } = await alertsRepository.syncAlerts(
+      clientConnectionConfig.id,
+      belowThreshold
+    );
+    itemsToNotify = newAlerts;
+    newAlertsCount = newAlerts.length;
+    if (resolvedCount > 0) {
       console.log(
-        `[MultiCheck] اتبعتت رسالة واتساب للعميل "${clientConnectionConfig.clientName}" (${belowThreshold.length} حالة)`
+        `[MultiCheck] العميل "${clientConnectionConfig.clientName}": ${resolvedCount} حالة رجعت فوق حد إعادة الطلب.`
+      );
+    }
+  }
+
+  let whatsappResult = null;
+  if (itemsToNotify.length > 0) {
+    const message = buildWhatsappMessage(clientConnectionConfig.clientName, itemsToNotify, {
+      onlyNew: onlyNewAlerts,
+    });
+    try {
+      whatsappResult = await whatsappService.sendWhatsappMessageToMany(
+        clientConnectionConfig.whatsappPhone,
+        message
+      );
+      console.log(
+        `[MultiCheck] اتبعتت رسالة واتساب للعميل "${clientConnectionConfig.clientName}" ` +
+        `(${itemsToNotify.length} ${onlyNewAlerts ? 'حالة جديدة' : 'حالة'})`
       );
     } catch (err) {
       whatsappResult = { sent: false, error: err.message };
@@ -73,6 +109,7 @@ async function runCheckForClient(clientConnectionConfig) {
     clientName: clientConnectionConfig.clientName,
     belowThresholdCount: belowThreshold.length,
     belowThreshold,
+    newAlertsCount,
     whatsapp: whatsappResult,
   };
 }

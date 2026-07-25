@@ -4,15 +4,20 @@ const multiClientCheckService = require('../services/multiClientCheckService');
 
 // التشغيل التلقائي بيتفعل بـ:
 //   ENABLE_CRON=true
-//   CRON_SCHEDULE="0 * * * *"   (اختياري - افتراضي كل ساعة، صيغة cron عادية)
-
+//   CRON_SCHEDULE="* * * * *"   (اختياري - افتراضي كل دقيقة، صيغة cron عادية)
+//
+// ده الميكانيزم اللي بيخلي التنبيه يوصل "فورًا" من غير ما حد يفتح الموقع أو
+// يدوس على الصنف: السيرفر بيفحص كل العملاء كل دقيقة لوحده، ولو لقى صنف جديد
+// وصل لحد إعادة الطلب (مش كان معروف من قبل) بيبعت تنبيه واتساب على طول عن
+// الصنف ده بس (مش بيكرر نفس التنبيه في كل مرة طول ما الصنف لسه تحت الحد -
+// شوف alertsRepository.syncAlerts).
 function start() {
   if (process.env.ENABLE_CRON !== 'true') {
     console.log('[Cron] الفحص التلقائي المجدول متوقف (ENABLE_CRON مش = true)');
     return;
   }
 
-  const schedule = process.env.CRON_SCHEDULE || '0 * * * *';
+  const schedule = process.env.CRON_SCHEDULE || '* * * * *';
   if (!cron.validate(schedule)) {
     console.error(`[Cron] CRON_SCHEDULE غير صحيح: "${schedule}" - الفحص التلقائي مش هيشتغل`);
     return;
@@ -23,7 +28,6 @@ function start() {
 }
 
 async function runAllClientsCheck() {
-  console.log('[Cron] بدء فحص كل العملاء...');
   let clients;
   try {
     clients = await clientsRepository.getActiveClients();
@@ -35,13 +39,18 @@ async function runAllClientsCheck() {
   for (const client of clients) {
     try {
       const fullConfig = await clientsRepository.getClientConnectionConfig(client.id);
-      const result = await multiClientCheckService.runCheckForClient(fullConfig);
-      console.log(`[Cron] "${result.clientName}": ${result.belowThresholdCount} حالة تحت حد إعادة الطلب`);
+      // onlyNewAlerts: true -> يبعت تنبيه بس عن الأصناف الجديدة اللي ظهرت
+      // من آخر فحص، مش عن كل الأصناف تحت الحد في كل مرة.
+      const result = await multiClientCheckService.runCheckForClient(fullConfig, { onlyNewAlerts: true });
+      if (result.newAlertsCount > 0) {
+        console.log(
+          `[Cron] "${result.clientName}": ${result.newAlertsCount} صنف جديد وصل لحد إعادة الطلب (من إجمالي ${result.belowThresholdCount} حالة حاليًا).`
+        );
+      }
     } catch (err) {
       console.error(`[Cron] فشل فحص العميل "${client.clientName}":`, err.message);
     }
   }
-  console.log('[Cron] انتهى فحص كل العملاء.');
 }
 
 module.exports = { start, runAllClientsCheck };

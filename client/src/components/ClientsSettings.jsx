@@ -10,12 +10,47 @@ const emptyForm = {
   dbPort: 1433,
   dbEncrypt: false,
   dbTrustServerCertificate: true,
-  whatsappPhone: '',
+  whatsappPhones: [{ phone: '', enabled: true }],
   loginUsername: '',
   loginPassword: '',
   role: 0,
   isActive: true,
 };
+
+// الباك إند بيخزن الأرقام في عمود واحد (whatsappPhone) كـ JSON فيه لكل رقم
+// حالة تفعيل/تعطيل. الدالتين دول بيحولوا بين الشكل ده والمصفوفة اللي الفورم
+// شغال بيها. لو القيمة المخزنة قديمة (نص عادي أو أرقام بفاصلة من قبل ميزة
+// التعطيل) بتتحول تلقائيًا لمصفوفة كلها مفعّلة.
+function phonesStringToArray(phonesString) {
+  const raw = String(phonesString || '').trim();
+  if (!raw) return [{ phone: '', enabled: true }];
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      const entries = parsed
+        .map((p) => ({ phone: String(p.phone || '').trim(), enabled: p.enabled !== false }))
+        .filter((p) => p.phone);
+      return entries.length > 0 ? entries : [{ phone: '', enabled: true }];
+    }
+  } catch {
+    // مش JSON - يبقى الشكل القديم، هنكمل تحت
+  }
+
+  const entries = raw
+    .split(/[,;\n]+/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((phone) => ({ phone, enabled: true }));
+  return entries.length > 0 ? entries : [{ phone: '', enabled: true }];
+}
+
+function phonesArrayToString(entries) {
+  const cleaned = entries
+    .map((e) => ({ phone: e.phone.trim(), enabled: e.enabled !== false }))
+    .filter((e) => e.phone);
+  return JSON.stringify(cleaned);
+}
 
 export default function ClientsSettings() {
   const [clients, setClients] = useState([]);
@@ -63,8 +98,40 @@ export default function ClientsSettings() {
   }
 
   function openEditForm(client) {
-    setForm({ ...client, dbPassword: '', loginPassword: '' }); // الباسوردات بتفضل فاضية، تتحدث بس لو كتب باسورد جديد
+    setForm({
+      ...client,
+      dbPassword: '',
+      loginPassword: '', // الباسوردات بتفضل فاضية، تتحدث بس لو كتب باسورد جديد
+      whatsappPhones: phonesStringToArray(client.whatsappPhone),
+    });
     setEditingId(client.id);
+  }
+
+  function setPhoneAt(index, value) {
+    setForm((prev) => {
+      const next = [...prev.whatsappPhones];
+      next[index] = { ...next[index], phone: value };
+      return { ...prev, whatsappPhones: next };
+    });
+  }
+
+  function togglePhoneEnabledAt(index) {
+    setForm((prev) => {
+      const next = [...prev.whatsappPhones];
+      next[index] = { ...next[index], enabled: !next[index].enabled };
+      return { ...prev, whatsappPhones: next };
+    });
+  }
+
+  function addPhoneField() {
+    setForm((prev) => ({ ...prev, whatsappPhones: [...prev.whatsappPhones, { phone: '', enabled: true }] }));
+  }
+
+  function removePhoneField(index) {
+    setForm((prev) => {
+      const next = prev.whatsappPhones.filter((_, i) => i !== index);
+      return { ...prev, whatsappPhones: next.length > 0 ? next : [{ phone: '', enabled: true }] };
+    });
   }
 
   function closeForm() {
@@ -76,10 +143,12 @@ export default function ClientsSettings() {
     setSaving(true);
     setError('');
     try {
+      const payload = { ...form, whatsappPhone: phonesArrayToString(form.whatsappPhones) };
+      delete payload.whatsappPhones;
       if (editingId === 'new') {
-        await createClient(form);
+        await createClient(payload);
       } else {
-        await updateClient(editingId, form);
+        await updateClient(editingId, payload);
       }
       closeForm();
       await loadClients();
@@ -176,8 +245,31 @@ export default function ClientsSettings() {
           </div>
 
           <div className="field">
-            <label>رقم واتساب العميل (بالصيغة الدولية، مثال 201012345678)</label>
-            <input value={form.whatsappPhone} onChange={(e) => setForm({ ...form, whatsappPhone: e.target.value })} placeholder="201012345678" />
+            <label>أرقام واتساب العميل (بالصيغة الدولية، مثال 201012345678) - تقدر تضيف أكتر من رقم، وكل الأرقام المفعّلة هتاخد نفس رسالة التنبيه. عطّل أي رقم من غير ما تمسحه لو عايز توقف الرسايل ليه مؤقتًا.</label>
+            {form.whatsappPhones.map((entry, index) => (
+              <div className="field-row" key={index} style={{ alignItems: 'center', marginBottom: '6px' }}>
+                <input
+                  value={entry.phone}
+                  onChange={(e) => setPhoneAt(index, e.target.value)}
+                  placeholder="201012345678"
+                  style={!entry.enabled ? { opacity: 0.5, textDecoration: 'line-through' } : undefined}
+                />
+                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+                  <input
+                    type="checkbox"
+                    checked={!entry.enabled}
+                    onChange={() => togglePhoneEnabledAt(index)}
+                  />
+                  تعطيل
+                </label>
+                {form.whatsappPhones.length > 1 && (
+                  <button type="button" className="btn-danger" onClick={() => removePhoneField(index)}>
+                    حذف
+                  </button>
+                )}
+              </div>
+            ))}
+            <button type="button" className="btn-secondary" onClick={addPhoneField}>+ إضافة رقم تاني</button>
           </div>
 
           <div className="actions">
@@ -209,7 +301,10 @@ export default function ClientsSettings() {
                 </div>
               </div>
               <p className="client-meta">
-                {client.dbServer}:{client.dbPort} / {client.dbName} — واتساب: {client.whatsappPhone}
+                {client.dbServer}:{client.dbPort} / {client.dbName} — واتساب:{' '}
+                {phonesStringToArray(client.whatsappPhone)
+                  .map((e) => (e.enabled ? e.phone : `${e.phone} (معطل)`))
+                  .join('، ')}
               </p>
               <p className="client-meta">
                 اسم مستخدم الدخول: {client.loginUsername || <span className="error-text">غير محدد — لن يتمكن العميل من تسجيل الدخول</span>}

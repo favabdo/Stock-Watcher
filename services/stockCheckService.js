@@ -67,8 +67,7 @@ async function checkItemAcrossStores(pool, itemId, clientInfo = null) {
     if (clientInfo && clientInfo.whatsappPhone) {
       const message = buildWhatsappMessage(clientInfo.clientName, item, belowThreshold);
       try {
-        await whatsappService.sendWhatsappMessage(clientInfo.whatsappPhone, message);
-        whatsappResult = { sent: true };
+        whatsappResult = await whatsappService.sendWhatsappMessageToMany(clientInfo.whatsappPhone, message);
         console.log(`[StockCheck] اتبعتت رسالة واتساب تنبيه للصنف ${item.Code}`);
       } catch (err) {
         whatsappResult = { sent: false, error: err.message };

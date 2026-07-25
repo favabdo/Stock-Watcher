@@ -96,4 +96,66 @@ async function sendWhatsappMessage(toPhone, messageText) {
   return data;
 }
 
-module.exports = { sendWhatsappMessage };
+// الأرقام دلوقتي ممكن تتخزن بشكلين في عمود WhatsappPhone:
+//   - الشكل الجديد: JSON زي [{"phone":"201012345678","enabled":true}, ...]
+//     بيسمح إن كل رقم يتفعّل/يتعطّل لوحده.
+//   - الشكل القديم (قبل ميزة التعطيل): نص عادي رقم أو أرقام مفصولة بفاصلة/
+//     فاصلة منقوطة/سطر جديد - بيتعامل معاه كأن كل الأرقام دي مفعّلة.
+function parsePhoneEntries(phonesRaw) {
+  const raw = String(phonesRaw || '').trim();
+  if (!raw) return [];
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed
+        .map((p) => ({ phone: String(p.phone || '').trim(), enabled: p.enabled !== false }))
+        .filter((p) => p.phone);
+    }
+  } catch (err) {
+    // مش JSON - يبقى الشكل القديم، هنكمل تحت
+  }
+
+  return raw
+    .split(/[,;\n]+/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((phone) => ({ phone, enabled: true }));
+}
+
+// بيرجع الأرقام المفعّلة بس (اللي مش متعطلة) كمصفوفة نصوص، جاهزة للإرسال عليها.
+function parsePhoneList(phones) {
+  return parsePhoneEntries(phones)
+    .filter((p) => p.enabled)
+    .map((p) => p.phone);
+}
+
+// بتبعت نفس رسالة التنبيه لكل الأرقام "المفعّلة" بتاعة العميل (بيتجاهل أي رقم
+// اتعمله تعطيل). لو رقم فشل إرساله، الباقي بيكمل عادي، والنتيجة بترجع تفاصيل
+// كل رقم على حدة عشان تقدر تعرف مين نجح ومين فشل.
+async function sendWhatsappMessageToMany(phones, messageText) {
+  const phoneList = parsePhoneList(phones);
+  if (phoneList.length === 0) {
+    throw new Error('مفيش أي رقم واتساب مفعّل للعميل ده لإرسال التنبيه عليه');
+  }
+
+  const results = await Promise.all(
+    phoneList.map(async (phone) => {
+      try {
+        await sendWhatsappMessage(phone, messageText);
+        return { phone, sent: true };
+      } catch (err) {
+        return { phone, sent: false, error: err.message };
+      }
+    })
+  );
+
+  return {
+    sent: results.some((r) => r.sent), // نجح لو رقم واحد على الأقل اتبعتله
+    allSent: results.every((r) => r.sent),
+    results,
+  };
+}
+
+module.exports = { sendWhatsappMessage, sendWhatsappMessageToMany, parsePhoneList, parsePhoneEntries };
+

@@ -23,3 +23,7 @@ services:
         value: true
       - key: NODE_VERSION
         value: 20.11.0
+      - key: ENABLE_CRON
+        value: true
+      - key: CRON_SCHEDULE
+        value: "* * * * *"
