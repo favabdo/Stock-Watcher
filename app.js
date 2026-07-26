@@ -6,6 +6,7 @@ const clientsRoutes = require('./routes/clients.routes');
 const authRoutes = require('./routes/auth.routes');
 const adminAuthRoutes = require('./routes/adminAuth.routes');
 const whatsappWebhookRoutes = require('./routes/whatsappWebhook.routes');
+const cronRoutes = require('./routes/cron.routes');
 const scheduledCheckJob = require('./jobs/scheduledCheckJob');
 
 const app = express();
@@ -21,6 +22,7 @@ app.use('/api/admin', adminAuthRoutes);
 app.use('/api/items', itemsRoutes);
 app.use('/api/clients', clientsRoutes);
 app.use('/api/webhooks/whatsapp', whatsappWebhookRoutes);
+app.use('/api/cron', cronRoutes);
 
 // صفحة الأدمن (/admin) صفحة منفصلة تمامًا عن صفحة اليوزر على مستوى الفرونت
 // إند (باندل واحد، بس بيقرر يعرض إيه على حسب المسار). لازم نرجّع index.html

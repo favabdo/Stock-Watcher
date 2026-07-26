@@ -5,14 +5,13 @@ const alertsRepository = require('../repositories/alertsRepository');
 
 const MAX_LINES_IN_MESSAGE = 30;
 
-function buildWhatsappMessage(clientName, belowThreshold, { onlyNew = false } = {}) {
+// بيبني رسالة مجمعة (كل الحالات مع بعضها في رسالة واحدة) - مستخدمة بس في
+// الفحص اليدوي الكامل (زرار "تحقق الآن" في صفحة الإعدادات، onlyNewAlerts:
+// false) لأن ده فحص مقصود من الأدمن عايز يشوف الصورة كاملة دفعة واحدة.
+function buildSummaryMessage(clientName, belowThreshold) {
   const parts = [];
   parts.push(`تنبيه Stock Watcher - ${clientName}.`);
-  parts.push(
-    onlyNew
-      ? `فيه ${belowThreshold.length} صنف جديد وصل لحد إعادة الطلب أو أقل منه:`
-      : `فيه ${belowThreshold.length} حالة وصلت لحد إعادة الطلب أو أقل منه:`
-  );
+  parts.push(`فيه ${belowThreshold.length} حالة وصلت لحد إعادة الطلب أو أقل منه:`);
 
   belowThreshold.slice(0, MAX_LINES_IN_MESSAGE).forEach((row, i) => {
     const name = row.Name_Ar || row.Name_En || row.Code;
@@ -24,6 +23,45 @@ function buildWhatsappMessage(clientName, belowThreshold, { onlyNew = false } = 
   }
 
   return parts.join(' ');
+}
+
+// بيبني رسالة لصنف واحد بس، مع كل المخازن اللي وصل فيها لحد إعادة الطلب -
+// دي اللي بتتبعت في الفحص التلقائي المجدول (onlyNewAlerts: true) لكل صنف
+// جديد لوحده، منفصلة تمامًا عن أي صنف تاني ظهر في نفس دورة الفحص.
+function buildSingleItemMessage(clientName, itemGroup) {
+  const name = itemGroup.Name_Ar || itemGroup.Name_En || itemGroup.Code;
+  const parts = [];
+  parts.push(`تنبيه Stock Watcher - ${clientName}.`);
+  parts.push(`الصنف ${itemGroup.Code} - ${name} وصل لحد إعادة الطلب أو أقل في ${itemGroup.stores.length} مخزن:`);
+
+  itemGroup.stores.slice(0, MAX_LINES_IN_MESSAGE).forEach((s, i) => {
+    parts.push(`${i + 1}) ${s.storename}: الاستوك ${s.transpkgqty1} (الحد ${s.ReorderQty}).`);
+  });
+
+  if (itemGroup.stores.length > MAX_LINES_IN_MESSAGE) {
+    parts.push(`و ${itemGroup.stores.length - MAX_LINES_IN_MESSAGE} مخزن تاني.`);
+  }
+
+  return parts.join(' ');
+}
+
+// بيجمع صفوف (صنف × مخزن) المسطحة لمجموعات لكل صنف لوحده - عشان كل صنف
+// ياخد رسالة واتساب منفصلة بدل ما كل الأصناف الجديدة تتلم في رسالة واحدة.
+function groupRowsByItem(rows) {
+  const byItem = new Map();
+  for (const row of rows) {
+    if (!byItem.has(row.itemid)) {
+      byItem.set(row.itemid, {
+        itemid: row.itemid,
+        Code: row.Code,
+        Name_Ar: row.Name_Ar,
+        Name_En: row.Name_En,
+        stores: [],
+      });
+    }
+    byItem.get(row.itemid).stores.push(row);
+  }
+  return [...byItem.values()];
 }
 
 // بيفحص كل الأصناف اللي وصلت لحد إعادة الطلب أو أقل في أي مخزن، عن طريق نداء
@@ -84,23 +122,48 @@ async function runCheckForClient(clientConnectionConfig, { onlyNewAlerts = false
     }
   }
 
-  let whatsappResult = null;
+  const whatsappResults = [];
+
   if (itemsToNotify.length > 0) {
-    const message = buildWhatsappMessage(clientConnectionConfig.clientName, itemsToNotify, {
-      onlyNew: onlyNewAlerts,
-    });
-    try {
-      whatsappResult = await whatsappService.sendWhatsappMessageToMany(
-        clientConnectionConfig.whatsappPhones,
-        message
-      );
-      console.log(
-        `[MultiCheck] اتبعتت رسالة واتساب للعميل "${clientConnectionConfig.clientName}" ` +
-        `(${itemsToNotify.length} ${onlyNewAlerts ? 'حالة جديدة' : 'حالة'})`
-      );
-    } catch (err) {
-      whatsappResult = { sent: false, error: err.message };
-      console.error(`[MultiCheck] فشل إرسال واتساب للعميل "${clientConnectionConfig.clientName}":`, err.message);
+    if (onlyNewAlerts) {
+      // كل صنف جديد ياخد رسالة واتساب منفصلة بتاعته بس، حتى لو أكتر من صنف
+      // ظهر في نفس دورة الفحص - مش رسالة واحدة مجمعة فيها كل الأصناف.
+      const itemGroups = groupRowsByItem(itemsToNotify);
+      for (const itemGroup of itemGroups) {
+        const message = buildSingleItemMessage(clientConnectionConfig.clientName, itemGroup);
+        try {
+          const result = await whatsappService.sendWhatsappMessageToMany(
+            clientConnectionConfig.whatsappPhones,
+            message
+          );
+          whatsappResults.push({ itemid: itemGroup.itemid, code: itemGroup.Code, ...result });
+          console.log(
+            `[MultiCheck] اتبعتت رسالة واتساب منفصلة للصنف "${itemGroup.Code}" للعميل "${clientConnectionConfig.clientName}" (${itemGroup.stores.length} مخزن).`
+          );
+        } catch (err) {
+          whatsappResults.push({ itemid: itemGroup.itemid, code: itemGroup.Code, sent: false, error: err.message });
+          console.error(
+            `[MultiCheck] فشل إرسال واتساب للصنف "${itemGroup.Code}" للعميل "${clientConnectionConfig.clientName}":`,
+            err.message
+          );
+        }
+      }
+    } else {
+      // الفحص اليدوي الكامل - رسالة واحدة مجمعة زي ما كان.
+      const message = buildSummaryMessage(clientConnectionConfig.clientName, itemsToNotify);
+      try {
+        const result = await whatsappService.sendWhatsappMessageToMany(
+          clientConnectionConfig.whatsappPhones,
+          message
+        );
+        whatsappResults.push(result);
+        console.log(
+          `[MultiCheck] اتبعتت رسالة واتساب مجمعة للعميل "${clientConnectionConfig.clientName}" (${itemsToNotify.length} حالة)`
+        );
+      } catch (err) {
+        whatsappResults.push({ sent: false, error: err.message });
+        console.error(`[MultiCheck] فشل إرسال واتساب للعميل "${clientConnectionConfig.clientName}":`, err.message);
+      }
     }
   }
 
@@ -110,7 +173,7 @@ async function runCheckForClient(clientConnectionConfig, { onlyNewAlerts = false
     belowThresholdCount: belowThreshold.length,
     belowThreshold,
     newAlertsCount,
-    whatsapp: whatsappResult,
+    whatsapp: whatsappResults,
   };
 }
 

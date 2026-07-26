@@ -4,13 +4,27 @@ const multiClientCheckService = require('../services/multiClientCheckService');
 
 // التشغيل التلقائي بيتفعل بـ:
 //   ENABLE_CRON=true
-//   CRON_SCHEDULE="* * * * *"   (اختياري - افتراضي كل دقيقة، صيغة cron عادية)
+//   CRON_SCHEDULE="*/10 * * * * *"   (صيغة cron بست حقول: ثانية دقيقة ساعة
+//                                     يوم شهر يوم_أسبوع - المثال ده كل 10
+//                                     ثواني. الصيغة العادية بخمس حقول زي
+//                                     "* * * * *" لسه شغالة برضه لو عايز
+//                                     دقة الدقيقة بس)
 //
 // ده الميكانيزم اللي بيخلي التنبيه يوصل "فورًا" من غير ما حد يفتح الموقع أو
-// يدوس على الصنف: السيرفر بيفحص كل العملاء كل دقيقة لوحده، ولو لقى صنف جديد
-// وصل لحد إعادة الطلب (مش كان معروف من قبل) بيبعت تنبيه واتساب على طول عن
-// الصنف ده بس (مش بيكرر نفس التنبيه في كل مرة طول ما الصنف لسه تحت الحد -
-// شوف alertsRepository.syncAlerts).
+// يدوس على الصنف: السيرفر بيفحص كل العملاء كل ما الجدول يستحق (كل 10 ثواني
+// افتراضيًا) لوحده - تمامًا زي لو الصفحة الرئيسية بتعمل نفسها ريفريش أوتوماتيك
+// كل شوية، بس من غير أي متصفح مفتوح خالص. لو لقى صنف جديد وصل لحد إعادة
+// الطلب (مش كان معروف من قبل) بيبعت تنبيه واتساب على طول عن الصنف ده بس (مش
+// بيكرر نفس التنبيه في كل مرة طول ما الصنف لسه تحت الحد - شوف
+// alertsRepository.syncAlerts).
+//
+// ده حل جذري وكافي لوحده على سيرفر دايمًا شغال (زي سيرفر شركة on-prem أو أي
+// VPS/سيرفر مدفوع): البروسيس بيفضل شغال 24/7 فالجدولة الداخلية دي بتشتغل
+// أوتوماتيك من غير أي حاجة إضافية (زي بينج خارجي أو استضافة مجانية بتنيّم
+// السيرفر). المهم بس تتأكد إن حد بيشغّل السيرفر نفسه بشكل دائم (PM2 أو
+// Windows Service) - شوف ملحوظة التشغيل الدائم في README.md.
+let isRunning = false;
+
 function start() {
   if (process.env.ENABLE_CRON !== 'true') {
     console.log('[Cron] الفحص التلقائي المجدول متوقف (ENABLE_CRON مش = true)');
@@ -28,28 +42,41 @@ function start() {
 }
 
 async function runAllClientsCheck() {
-  let clients;
-  try {
-    clients = await clientsRepository.getActiveClients();
-  } catch (err) {
-    console.error('[Cron] فشل تحميل قائمة العملاء:', err.message);
+  // Guard بسيط عشان لو نداءين اشتغلوا في نفس الوقت (الجدولة الداخلية + بينج
+  // خارجي مثلاً) ميحصلش فحص مزدوج للعميل نفسه في نفس اللحظة (ده كان ممكن
+  // يسبب نظريًا تنبيه مكرر لو الاتنين مسكوا نفس الصنف في لحظة التحول).
+  if (isRunning) {
+    console.log('[Cron] فيه فحص شغال بالفعل - هيتم تجاهل النداء ده.');
     return;
   }
+  isRunning = true;
 
-  for (const client of clients) {
+  try {
+    let clients;
     try {
-      const fullConfig = await clientsRepository.getClientConnectionConfig(client.id);
-      // onlyNewAlerts: true -> يبعت تنبيه بس عن الأصناف الجديدة اللي ظهرت
-      // من آخر فحص، مش عن كل الأصناف تحت الحد في كل مرة.
-      const result = await multiClientCheckService.runCheckForClient(fullConfig, { onlyNewAlerts: true });
-      if (result.newAlertsCount > 0) {
-        console.log(
-          `[Cron] "${result.clientName}": ${result.newAlertsCount} صنف جديد وصل لحد إعادة الطلب (من إجمالي ${result.belowThresholdCount} حالة حاليًا).`
-        );
-      }
+      clients = await clientsRepository.getActiveClients();
     } catch (err) {
-      console.error(`[Cron] فشل فحص العميل "${client.clientName}":`, err.message);
+      console.error('[Cron] فشل تحميل قائمة العملاء:', err.message);
+      return;
     }
+
+    for (const client of clients) {
+      try {
+        const fullConfig = await clientsRepository.getClientConnectionConfig(client.id);
+        // onlyNewAlerts: true -> يبعت تنبيه بس عن الأصناف الجديدة اللي ظهرت
+        // من آخر فحص، مش عن كل الأصناف تحت الحد في كل مرة.
+        const result = await multiClientCheckService.runCheckForClient(fullConfig, { onlyNewAlerts: true });
+        if (result.newAlertsCount > 0) {
+          console.log(
+            `[Cron] "${result.clientName}": ${result.newAlertsCount} صنف جديد وصل لحد إعادة الطلب (من إجمالي ${result.belowThresholdCount} حالة حاليًا).`
+          );
+        }
+      } catch (err) {
+        console.error(`[Cron] فشل فحص العميل "${client.clientName}":`, err.message);
+      }
+    }
+  } finally {
+    isRunning = false;
   }
 }
 
