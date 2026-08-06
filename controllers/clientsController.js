@@ -1,6 +1,7 @@
 const clientsRepository = require('../repositories/clientsRepository');
 const clientPoolManager = require('../services/clientPoolManager');
 const multiClientCheckService = require('../services/multiClientCheckService');
+const creditLimitCheckService = require('../services/creditLimitCheckService');
 
 async function list(req, res, next) {
   try {
@@ -25,6 +26,12 @@ async function create(req, res, next) {
         error: 'لازم تحدد يوزر وباسورد تسجيل دخول للعميل عشان يقدر يشوف بياناته',
       });
     }
+    // لازم يتفعل نوع تنبيه واحد على الأقل (حد إعادة الطلب و/أو الحد الائتماني)
+    if (req.body.alertStockEnabled === false && !req.body.alertCreditLimitEnabled) {
+      return res.status(400).json({
+        error: 'لازم تفعّل نوع تنبيه واحد على الأقل: حد إعادة الطلب أو الحد الائتماني',
+      });
+    }
     const client = await clientsRepository.createClient(req.body, req.admin?.id ?? null);
     res.status(201).json(client);
   } catch (err) {
@@ -38,6 +45,11 @@ async function create(req, res, next) {
 async function update(req, res, next) {
   try {
     const id = Number(req.params.id);
+    if (req.body.alertStockEnabled === false && !req.body.alertCreditLimitEnabled) {
+      return res.status(400).json({
+        error: 'لازم تفعّل نوع تنبيه واحد على الأقل: حد إعادة الطلب أو الحد الائتماني',
+      });
+    }
     await clientPoolManager.evictPool(id); // لو بيانات الاتصال اتغيرت، نقفل الاتصال القديم المخزن
     const client = await clientsRepository.updateClient(id, req.body);
     if (!client) return res.status(404).json({ error: 'العميل غير موجود' });
@@ -61,14 +73,26 @@ async function remove(req, res, next) {
   }
 }
 
-// فحص فوري يدوي لعميل معين + بعت واتساب لو لقى حاجة تحت الحد
+// فحص فوري يدوي لعميل معين + بعت واتساب لو لقى حاجة تحت الحد - بيشغل فحص
+// الاستوك و/أو فحص الحد الائتماني على حسب نوع التنبيهات المفعّلة لهذا العميل
+// (alertStockEnabled / alertCreditLimitEnabled).
 async function checkNow(req, res, next) {
   try {
     const id = Number(req.params.id);
     const fullConfig = await clientsRepository.getClientConnectionConfig(id);
     if (!fullConfig) return res.status(404).json({ error: 'العميل غير موجود' });
-    const result = await multiClientCheckService.runCheckForClient(fullConfig);
-    res.json(result);
+
+    const [stock, credit] = await Promise.all([
+      fullConfig.alertStockEnabled ? multiClientCheckService.runCheckForClient(fullConfig) : null,
+      fullConfig.alertCreditLimitEnabled ? creditLimitCheckService.runCreditCheckForClient(fullConfig) : null,
+    ]);
+
+    res.json({
+      clientId: fullConfig.id,
+      clientName: fullConfig.clientName,
+      stock,
+      credit,
+    });
   } catch (err) {
     next(err);
   }

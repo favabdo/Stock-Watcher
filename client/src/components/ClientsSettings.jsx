@@ -15,6 +15,8 @@ const emptyForm = {
   loginPassword: '',
   role: 0,
   isActive: true,
+  alertStockEnabled: true,
+  alertCreditLimitEnabled: false,
 };
 
 // أرقام واتساب العميل بقت متخزنة في جدول منفصل مربوط بـ ClientId (مش عمود
@@ -121,6 +123,10 @@ export default function ClientsSettings() {
   }
 
   async function handleSave() {
+    if (!form.alertStockEnabled && !form.alertCreditLimitEnabled) {
+      setError('لازم تفعّل نوع تنبيه واحد على الأقل: حد إعادة الطلب أو الحد الائتماني');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
@@ -213,6 +219,31 @@ export default function ClientsSettings() {
             <label><input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} /> نشط</label>
           </div>
 
+          <div className="field">
+            <label>نوع التنبيهات المفعّلة لهذا العميل</label>
+            <div className="field-row checkboxes">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={form.alertStockEnabled}
+                  onChange={(e) => setForm({ ...form, alertStockEnabled: e.target.checked })}
+                />
+                تنبيه حد إعادة الطلب (نقص الاستوك)
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={form.alertCreditLimitEnabled}
+                  onChange={(e) => setForm({ ...form, alertCreditLimitEnabled: e.target.checked })}
+                />
+                تنبيه تجاوز الحد الائتماني
+              </label>
+            </div>
+            {!form.alertStockEnabled && !form.alertCreditLimitEnabled && (
+              <p className="error-text">لازم تفعّل نوع تنبيه واحد على الأقل</p>
+            )}
+          </div>
+
           <div className="field-row">
             <div className="field">
               <label>اسم مستخدم دخول العميل</label>
@@ -294,12 +325,25 @@ export default function ClientsSettings() {
               <p className="client-meta">
                 أضافه: {client.createdByAdminUsername || <span className="error-text">غير معروف</span>}
               </p>
+              <p className="client-meta">
+                التنبيهات المفعّلة:{' '}
+                {[client.alertStockEnabled && 'حد إعادة الطلب', client.alertCreditLimitEnabled && 'الحد الائتماني']
+                  .filter(Boolean)
+                  .join(' + ') || <span className="error-text">لا يوجد</span>}
+              </p>
               {cr?.error && <p className="error-text">خطأ أثناء التحقق: {cr.error}</p>}
-              {cr?.result && (
-                <p className={`client-check-result ${cr.result.belowThresholdCount > 0 ? 'status-alert' : 'status-ok'}`}>
-                  {cr.result.belowThresholdCount > 0
-                    ? `⚠️ ${cr.result.belowThresholdCount} حالة بلغت حد إعادة الطلب — ${cr.result.whatsapp?.sent ? 'تم إرسال رسالة واتساب ✅' : `تعذّر إرسال واتساب: ${cr.result.whatsapp?.error || ''}`}`
+              {cr?.result?.stock && (
+                <p className={`client-check-result ${cr.result.stock.belowThresholdCount > 0 ? 'status-alert' : 'status-ok'}`}>
+                  {cr.result.stock.belowThresholdCount > 0
+                    ? `⚠️ ${cr.result.stock.belowThresholdCount} حالة بلغت حد إعادة الطلب — ${cr.result.stock.whatsapp?.[0]?.sent ? 'تم إرسال رسالة واتساب ✅' : `تعذّر إرسال واتساب: ${cr.result.stock.whatsapp?.[0]?.error || ''}`}`
                     : '✅ جميع الأصناف فوق حد إعادة الطلب'}
+                </p>
+              )}
+              {cr?.result?.credit && (
+                <p className={`client-check-result ${cr.result.credit.overLimitCount > 0 ? 'status-alert' : 'status-ok'}`}>
+                  {cr.result.credit.overLimitCount > 0
+                    ? `⚠️ ${cr.result.credit.overLimitCount} حالة تجاوزت الحد الائتماني — ${cr.result.credit.whatsapp?.[0]?.sent ? 'تم إرسال رسالة واتساب ✅' : `تعذّر إرسال واتساب: ${cr.result.credit.whatsapp?.[0]?.error || ''}`}`
+                    : '✅ جميع العملاء ضمن الحد الائتماني'}
                 </p>
               )}
             </div>

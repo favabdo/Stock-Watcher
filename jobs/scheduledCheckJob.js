@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const clientsRepository = require('../repositories/clientsRepository');
 const multiClientCheckService = require('../services/multiClientCheckService');
+const creditLimitCheckService = require('../services/creditLimitCheckService');
 
 // التشغيل التلقائي بيتفعل بـ:
 //   ENABLE_CRON=true
@@ -63,16 +64,38 @@ async function runAllClientsCheck() {
     for (const client of clients) {
       try {
         const fullConfig = await clientsRepository.getClientConnectionConfig(client.id);
-        // onlyNewAlerts: true -> يبعت تنبيه بس عن الأصناف الجديدة اللي ظهرت
-        // من آخر فحص، مش عن كل الأصناف تحت الحد في كل مرة.
-        const result = await multiClientCheckService.runCheckForClient(fullConfig, { onlyNewAlerts: true });
-        if (result.newAlertsCount > 0) {
-          console.log(
-            `[Cron] "${result.clientName}": ${result.newAlertsCount} صنف جديد وصل لحد إعادة الطلب (من إجمالي ${result.belowThresholdCount} حالة حاليًا).`
-          );
+
+        // كل عميل بيتفحص بحسب نوع التنبيهات المفعّلة له (alertStockEnabled /
+        // alertCreditLimitEnabled) - ممكن يكون مفعّل واحد بس أو الاتنين مع
+        // بعض. onlyNewAlerts: true في الحالتين -> يبعت تنبيه بس عن الحالات
+        // الجديدة اللي ظهرت من آخر فحص، مش عن كل الحالات المفتوحة في كل مرة.
+        if (fullConfig.alertStockEnabled) {
+          try {
+            const result = await multiClientCheckService.runCheckForClient(fullConfig, { onlyNewAlerts: true });
+            if (result.newAlertsCount > 0) {
+              console.log(
+                `[Cron] "${result.clientName}": ${result.newAlertsCount} صنف جديد وصل لحد إعادة الطلب (من إجمالي ${result.belowThresholdCount} حالة حاليًا).`
+              );
+            }
+          } catch (err) {
+            console.error(`[Cron] فشل فحص الاستوك للعميل "${client.clientName}":`, err.message);
+          }
+        }
+
+        if (fullConfig.alertCreditLimitEnabled) {
+          try {
+            const result = await creditLimitCheckService.runCreditCheckForClient(fullConfig, { onlyNewAlerts: true });
+            if (result.newAlertsCount > 0) {
+              console.log(
+                `[Cron] "${result.clientName}": ${result.newAlertsCount} حالة جديدة تجاوزت الحد الائتماني (من إجمالي ${result.overLimitCount} حالة حاليًا).`
+              );
+            }
+          } catch (err) {
+            console.error(`[Cron] فشل فحص الحد الائتماني للعميل "${client.clientName}":`, err.message);
+          }
         }
       } catch (err) {
-        console.error(`[Cron] فشل فحص العميل "${client.clientName}":`, err.message);
+        console.error(`[Cron] فشل تحميل إعدادات العميل "${client.clientName}":`, err.message);
       }
     }
   } finally {

@@ -20,6 +20,10 @@ function mapRow(row, phones = []) {
     loginUsername: row.LoginUsername || '',
     role: row.Role ?? 0,
     isActive: !!row.IsActive,
+    // نوع التنبيهات المفعّلة للعميل ده - يقدر يفعّل حد إعادة الطلب بس، أو
+    // الحد الائتماني بس، أو الاتنين مع بعض (شوف migration 008).
+    alertStockEnabled: row.AlertStockEnabled === undefined ? true : !!row.AlertStockEnabled,
+    alertCreditLimitEnabled: !!row.AlertCreditLimitEnabled,
     createdByAdminId: row.CreatedByAdminId ?? null,
     createdByAdminUsername: row.CreatedByAdminUsername || null,
     createdAt: row.CreatedAt,
@@ -35,6 +39,7 @@ async function getAllClients() {
   const result = await pool.request().query(`
     SELECT c.Id, c.ClientName, c.DbServer, c.DbName, c.DbUser, c.DbPort, c.DbEncrypt,
            c.DbTrustServerCertificate, c.LoginUsername, c.Role, c.IsActive,
+           c.AlertStockEnabled, c.AlertCreditLimitEnabled,
            c.CreatedByAdminId, a.Username AS CreatedByAdminUsername, c.CreatedAt, c.UpdatedAt
     FROM dbo.StockWatcherUsers_byA c
     LEFT JOIN dbo.stockwatcheradmin_byA a ON a.Id = c.CreatedByAdminId
@@ -62,7 +67,8 @@ async function getClientLoginByUsername(username) {
   const request = pool.request();
   request.input('username', sql.NVarChar(100), username);
   const result = await request.query(`
-    SELECT Id, ClientName, LoginUsername, LoginPasswordHash, Role, IsActive
+    SELECT Id, ClientName, LoginUsername, LoginPasswordHash, Role, IsActive,
+           AlertStockEnabled, AlertCreditLimitEnabled
     FROM dbo.StockWatcherUsers_byA
     WHERE LoginUsername = @username
   `);
@@ -75,6 +81,8 @@ async function getClientLoginByUsername(username) {
     loginPasswordHash: row.LoginPasswordHash,
     role: row.Role ?? 0,
     isActive: !!row.IsActive,
+    alertStockEnabled: row.AlertStockEnabled === undefined ? true : !!row.AlertStockEnabled,
+    alertCreditLimitEnabled: !!row.AlertCreditLimitEnabled,
   };
 }
 
@@ -86,7 +94,8 @@ async function getClientConnectionConfig(id) {
   request.input('id', sql.Int, id);
   const result = await request.query(`
     SELECT Id, ClientName, DbServer, DbName, DbUser, DbPasswordEncrypted, DbPort,
-           DbEncrypt, DbTrustServerCertificate, IsActive
+           DbEncrypt, DbTrustServerCertificate, IsActive,
+           AlertStockEnabled, AlertCreditLimitEnabled
     FROM dbo.StockWatcherUsers_byA
     WHERE Id = @id
   `);
@@ -105,6 +114,8 @@ async function getClientConnectionConfig(id) {
     dbTrustServerCertificate: !!row.DbTrustServerCertificate,
     whatsappPhones: phones.map((p) => ({ phone: p.phone, enabled: p.enabled })),
     isActive: !!row.IsActive,
+    alertStockEnabled: row.AlertStockEnabled === undefined ? true : !!row.AlertStockEnabled,
+    alertCreditLimitEnabled: !!row.AlertCreditLimitEnabled,
   };
 }
 
@@ -124,15 +135,22 @@ async function createClient(data, createdByAdminId) {
   request.input('role', sql.TinyInt, Number(data.role) || 0);
   request.input('isActive', sql.Bit, data.isActive !== false);
   request.input('createdByAdminId', sql.Int, createdByAdminId ?? null);
+  // نوع التنبيهات المفعّلة: حد إعادة الطلب و/أو الحد الائتماني. لو الأدمن
+  // مسيبهاش، حد إعادة الطلب بيفضل مفعّل افتراضيًا (نفس السلوك القديم قبل
+  // ما تتضاف الميزة دي) والحد الائتماني بيبقى متعطل لحد ما يفعّله بنفسه.
+  request.input('alertStockEnabled', sql.Bit, data.alertStockEnabled !== false);
+  request.input('alertCreditLimitEnabled', sql.Bit, !!data.alertCreditLimitEnabled);
 
   const result = await request.query(`
     INSERT INTO dbo.StockWatcherUsers_byA
       (ClientName, DbServer, DbName, DbUser, DbPasswordEncrypted, DbPort,
-       DbEncrypt, DbTrustServerCertificate, LoginUsername, LoginPasswordHash, Role, IsActive, CreatedByAdminId)
+       DbEncrypt, DbTrustServerCertificate, LoginUsername, LoginPasswordHash, Role, IsActive, CreatedByAdminId,
+       AlertStockEnabled, AlertCreditLimitEnabled)
     OUTPUT INSERTED.Id
     VALUES
       (@clientName, @dbServer, @dbName, @dbUser, @dbPasswordEncrypted, @dbPort,
-       @dbEncrypt, @dbTrustServerCertificate, @loginUsername, @loginPasswordHash, @role, @isActive, @createdByAdminId)
+       @dbEncrypt, @dbTrustServerCertificate, @loginUsername, @loginPasswordHash, @role, @isActive, @createdByAdminId,
+       @alertStockEnabled, @alertCreditLimitEnabled)
   `);
   const newId = result.recordset[0].Id;
   // الأرقام دلوقتي بتتخزن كصفوف مستقلة في جدول منفصل مربوط بـ ClientId، مش
@@ -155,6 +173,8 @@ async function updateClient(id, data) {
   request.input('loginUsername', sql.NVarChar(100), data.loginUsername);
   request.input('role', sql.TinyInt, Number(data.role) || 0);
   request.input('isActive', sql.Bit, data.isActive !== false);
+  request.input('alertStockEnabled', sql.Bit, data.alertStockEnabled !== false);
+  request.input('alertCreditLimitEnabled', sql.Bit, !!data.alertCreditLimitEnabled);
 
   // الباسورد يتحدث بس لو المستخدم كتب باسورد جديد (سايبه فاضي = يفضل زي ما هو)
   let passwordSetClause = '';
@@ -182,6 +202,8 @@ async function updateClient(id, data) {
         LoginUsername = @loginUsername,
         Role = @role,
         IsActive = @isActive,
+        AlertStockEnabled = @alertStockEnabled,
+        AlertCreditLimitEnabled = @alertCreditLimitEnabled,
         UpdatedAt = GETDATE()
         ${passwordSetClause}
         ${loginPasswordSetClause}

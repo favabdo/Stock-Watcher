@@ -23,7 +23,13 @@ async function login(req, res, next) {
     const token = signClientToken(client);
     res.json({
       token,
-      client: { id: client.id, clientName: client.clientName, role: client.role ?? 0 },
+      client: {
+        id: client.id,
+        clientName: client.clientName,
+        role: client.role ?? 0,
+        alertStockEnabled: client.alertStockEnabled !== false,
+        alertCreditLimitEnabled: !!client.alertCreditLimitEnabled,
+      },
     });
   } catch (err) {
     next(err);

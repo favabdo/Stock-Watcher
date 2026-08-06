@@ -90,6 +90,16 @@ export async function checkStock(id) {
   return data;
 }
 
+// ============ تنبيهات تجاوز الحد الائتماني ============
+const CREDIT_LIMIT_BASE = '/api/credit-limit';
+
+export async function getOverCreditLimitCustomers() {
+  const res = await itemsFetch(`${CREDIT_LIMIT_BASE}/over-limit`);
+  const data = await res.json().catch(() => []);
+  if (!res.ok) throw new Error(data.error || 'فشل تحميل قائمة تجاوز الحد الائتماني');
+  return data;
+}
+
 // ============ تسجيل دخول الأدمن (لوحة تحكم /admin - منفصلة تمامًا عن اليوزر) ============
 const ADMIN_AUTH_KEY = 'stockWatcherAdminAuth';
 

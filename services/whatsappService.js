@@ -12,6 +12,12 @@
 //   WHATSAPP_TEMPLATE_HAS_VARIABLE - "true" لو القالب فيه متغيّر {{1}} في الـ body،
 //                             أو "false"/فاضي لو القالب نص ثابت من غير متغيرات (افتراضي: true)
 //
+// قالب مخصص لتنبيهات تجاوز الحد الائتماني (اختياري - لو مش متحطوط بيرجع
+// يستخدم نفس القالب العام فوق):
+//   WHATSAPP_CREDIT_TEMPLATE_NAME
+//   WHATSAPP_CREDIT_TEMPLATE_LANG
+//   WHATSAPP_CREDIT_TEMPLATE_HAS_VARIABLE
+//
 // ملحوظة مهمة: رسائل بيزنس-initiated (زي تنبيهات نقص الاستوك دي) لو اتبعتت
 // كـ "text" عادي وكانت خارج نافذة الـ 24 ساعة الخاصة بمحادثة عميل حقيقية،
 // ميتا هترفضها. لازم تعمل Message Template وتاخدله موافقة من Meta، وتحط
@@ -21,7 +27,12 @@ function normalizePhone(phone) {
   return String(phone).replace(/[^\d]/g, '');
 }
 
-async function sendWhatsappMessage(toPhone, messageText) {
+// options.templateName / options.templateLang / options.hasVariable بتسمح
+// لأي نداء إنه "يفضّل" قالب مختلف عن القالب الافتراضي (WHATSAPP_TEMPLATE_NAME)
+// - ده اللي مستخدم في تنبيهات تجاوز الحد الائتماني عشان تبعت بقالب واتساب
+// جديد منفصل تمامًا عن قالب تنبيهات نقص الاستوك (كل قالب لازم يتاخدله موافقة
+// من ميتا لوحده، فمينفعش نستخدم نفس القالب لرسالتين شكلهم مختلف).
+async function sendWhatsappMessage(toPhone, messageText, options = {}) {
   const token = process.env.WHATSAPP_TOKEN;
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   const apiVersion = process.env.WHATSAPP_API_VERSION || 'v20.0';
@@ -35,12 +46,15 @@ async function sendWhatsappMessage(toPhone, messageText) {
 
   let body;
   if (mode === 'template') {
-    const templateName = process.env.WHATSAPP_TEMPLATE_NAME;
-    const templateLang = process.env.WHATSAPP_TEMPLATE_LANG || 'ar';
+    const templateName = options.templateName || process.env.WHATSAPP_TEMPLATE_NAME;
+    const templateLang = options.templateLang || process.env.WHATSAPP_TEMPLATE_LANG || 'ar';
     if (!templateName) {
       throw new Error('WHATSAPP_TEMPLATE_NAME مطلوب لما WHATSAPP_MESSAGE_MODE=template');
     }
-    const hasVariable = process.env.WHATSAPP_TEMPLATE_HAS_VARIABLE !== 'false';
+    const hasVariable =
+      options.hasVariable !== undefined
+        ? options.hasVariable
+        : process.env.WHATSAPP_TEMPLATE_HAS_VARIABLE !== 'false';
 
     body = {
       messaging_product: 'whatsapp',
@@ -138,7 +152,7 @@ function parsePhoneList(phones) {
 // بتبعت نفس رسالة التنبيه لكل الأرقام "المفعّلة" بتاعة العميل (بيتجاهل أي رقم
 // اتعمله تعطيل). لو رقم فشل إرساله، الباقي بيكمل عادي، والنتيجة بترجع تفاصيل
 // كل رقم على حدة عشان تقدر تعرف مين نجح ومين فشل.
-async function sendWhatsappMessageToMany(phones, messageText) {
+async function sendWhatsappMessageToMany(phones, messageText, options = {}) {
   const phoneList = parsePhoneList(phones);
   if (phoneList.length === 0) {
     throw new Error('مفيش أي رقم واتساب مفعّل للعميل ده لإرسال التنبيه عليه');
@@ -147,7 +161,7 @@ async function sendWhatsappMessageToMany(phones, messageText) {
   const results = await Promise.all(
     phoneList.map(async (phone) => {
       try {
-        await sendWhatsappMessage(phone, messageText);
+        await sendWhatsappMessage(phone, messageText, options);
         return { phone, sent: true };
       } catch (err) {
         return { phone, sent: false, error: err.message };

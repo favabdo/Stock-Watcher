@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import SearchBox from './components/SearchBox';
 import LowStockList from './components/LowStockList';
+import CreditLimitList from './components/CreditLimitList';
 import ItemPanel from './components/ItemPanel';
 import CheckResults from './components/CheckResults';
 import ClientLogin from './components/ClientLogin';
@@ -124,7 +125,8 @@ export default function App() {
             {checkError && <p className="error-text">{checkError}</p>}
             <CheckResults data={checkData} />
 
-            <LowStockList onSelect={handleSelect} />
+            {clientAuth.client.alertStockEnabled !== false && <LowStockList onSelect={handleSelect} />}
+            {clientAuth.client.alertCreditLimitEnabled && <CreditLimitList />}
           </>
         )}
       </div>
