@@ -19,47 +19,70 @@ function creditWhatsappOptions() {
   };
 }
 
+// ⚠️ مهم: القالب المعتمد من ميتا (Message Template) بيرفض أي متغيّر (parameter)
+// فيه سطر جديد فعلي (\n)، تابيوليشن (\t)، أو 4 مسافات متتالية أو أكتر - سواء
+// كان الحرف اتكتب فعلي في النص أو جه من .join('\n'). عشان كده الجملة هنا
+// بتتبني كسطر واحد متصل بس (زي بالظبط الصيغة اللي اتطلبت)، وأي معلومة
+// إضافية (زي آخر دفعة) بتتحط بين قوسين جوه نفس السطر بدل سطر جديد منفصل.
+// لو فيه أكتر من فرع/حالة في نفس الرسالة، بيتفصلوا عن بعض بمسافة عادية،
+// مش بسطر جديد.
+function buildOverLimitSentence(row, { includeBranch = false } = {}) {
+  const name = row.customerName || row.customerCode || row.customerId;
+  const branchLabel = row.branchName || row.branchId;
+  const branchLabelText = branchLabel != null ? String(branchLabel) : '';
+  const branchPart =
+    includeBranch && branchLabelText
+      ? ` (${branchLabelText.trim().startsWith('فرع') ? branchLabelText : `فرع ${branchLabelText}`})`
+      : '';
+  const lastPaidPart =
+    row.lastPaidAmount || row.lastPaidDate
+      ? ` (اخر دفعة ${row.lastPaidAmount ?? '-'} بتاريخ ${row.lastPaidDate ?? '-'})`
+      : '';
+
+  return (
+    `لقد تخطى العميل ${name}${branchPart} حد الائتمان الخاص به والذي يبلغ ${row.creditLimit} جنيه، ` +
+    `علمًا بأن مديونيته الحالية تبلغ ${row.balance} جنيه، مما يعني تجاوزه حد الائتمان بمبلغ وقدره ${row.overAmount} جنيه` +
+    `${lastPaidPart}.`
+  );
+}
+
 // رسالة مجمعة لكل الحالات مع بعضها - للفحص اليدوي الكامل (زرار "تحقق الآن").
+// كل الحالات بتتحط في سطر واحد متصل (مفصولة بمسافة)، مش سطر منفصل لكل حالة.
 function buildSummaryMessage(clientName, overLimit) {
-  const parts = [];
-  parts.push(`تنبيه تجاوز الحد الائتماني - ${clientName}.`);
-  parts.push(`فيه ${overLimit.length} حالة تجاوزت الحد الائتماني:`);
+  const sentences = overLimit
+    .slice(0, MAX_LINES_IN_MESSAGE)
+    .map((row) => buildOverLimitSentence(row, { includeBranch: true }));
 
-  overLimit.slice(0, MAX_LINES_IN_MESSAGE).forEach((row, i) => {
-    const name = row.customerName || row.customerCode || row.customerId;
-    const branchPart = row.branchName || row.branchId ? ` - فرع ${row.branchName || row.branchId}` : '';
-    const lastPaidPart = row.lastPaidAmount ? ` (آخر دفعة ${row.lastPaidAmount} بتاريخ ${row.lastPaidDate || '-'})` : '';
-    parts.push(
-      `${i + 1}) ${row.customerCode || row.customerId} - ${name}${branchPart}: الرصيد ${row.balance} (الحد ${row.creditLimit}، تجاوز بـ ${row.overAmount})${lastPaidPart}.`
-    );
-  });
+  const extra =
+    overLimit.length > MAX_LINES_IN_MESSAGE
+      ? ` و ${overLimit.length - MAX_LINES_IN_MESSAGE} حالة تانية.`
+      : '';
 
-  if (overLimit.length > MAX_LINES_IN_MESSAGE) {
-    parts.push(`و ${overLimit.length - MAX_LINES_IN_MESSAGE} حالة تانية.`);
-  }
-
-  return parts.join(' ');
+  return `${sentences.join(' ')}${extra}`;
 }
 
 // رسالة لعميل (شخص) واحد بس، مع كل الفروع اللي تجاوز فيها الحد - دي اللي
-// بتتبعت في الفحص التلقائي المجدول لكل حالة جديدة لوحدها.
+// بتتبعت في الفحص التلقائي المجدول لكل حالة جديدة لوحدها. لو فرع واحد بس،
+// الرسالة بتطلع مطابقة تمامًا للصيغة المطلوبة (من غير ذكر اسم الفرع أصلًا).
 function buildSingleCustomerMessage(clientName, customerGroup) {
-  const name = customerGroup.customerName || customerGroup.customerCode || customerGroup.customerId;
-  const parts = [];
-  parts.push(`تنبيه تجاوز الحد الائتماني - ${clientName}.`);
-  parts.push(`العميل ${customerGroup.customerCode || customerGroup.customerId} - ${name} تجاوز الحد الائتماني في ${customerGroup.branches.length} فرع:`);
+  const includeBranch = customerGroup.branches.length > 1;
+  const rowsWithName = customerGroup.branches.map((b) => ({
+    ...b,
+    customerName: customerGroup.customerName,
+    customerCode: customerGroup.customerCode,
+    customerId: customerGroup.customerId,
+  }));
 
-  customerGroup.branches.slice(0, MAX_LINES_IN_MESSAGE).forEach((b, i) => {
-    const branchPart = b.branchName || b.branchId ? `فرع ${b.branchName || b.branchId}: ` : '';
-    const lastPaidPart = b.lastPaidAmount ? ` (آخر دفعة ${b.lastPaidAmount} بتاريخ ${b.lastPaidDate || '-'})` : '';
-    parts.push(`${i + 1}) ${branchPart}الرصيد ${b.balance} (الحد ${b.creditLimit}، تجاوز بـ ${b.overAmount})${lastPaidPart}.`);
-  });
+  const sentences = rowsWithName
+    .slice(0, MAX_LINES_IN_MESSAGE)
+    .map((row) => buildOverLimitSentence(row, { includeBranch }));
 
-  if (customerGroup.branches.length > MAX_LINES_IN_MESSAGE) {
-    parts.push(`و ${customerGroup.branches.length - MAX_LINES_IN_MESSAGE} فرع تاني.`);
-  }
+  const extra =
+    customerGroup.branches.length > MAX_LINES_IN_MESSAGE
+      ? ` و ${customerGroup.branches.length - MAX_LINES_IN_MESSAGE} فرع تاني.`
+      : '';
 
-  return parts.join(' ');
+  return `${sentences.join(' ')}${extra}`;
 }
 
 // بيجمع صفوف (عميل × فرع) المسطحة لمجموعات لكل عميل لوحده - عشان كل عميل
