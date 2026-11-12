@@ -86,6 +86,33 @@ async function getClientLoginByUsername(username) {
   };
 }
 
+// بيانات هوية العميل فقط (لإصدار access token عند refresh من الموبايل).
+async function getClientForToken(id) {
+  const pool = await getPool();
+  const request = pool.request();
+  request.input('id', sql.Int, id);
+  const result = await request.query(`
+    SELECT Id, ClientName, Role, IsActive, AlertStockEnabled, AlertCreditLimitEnabled
+    FROM dbo.StockWatcherUsers_byA
+    WHERE Id = @id
+  `);
+  const row = result.recordset[0];
+  if (!row) return null;
+  return {
+    id: row.Id,
+    clientName: row.ClientName,
+    role: row.Role ?? 0,
+    isActive: !!row.IsActive,
+    alertStockEnabled: row.AlertStockEnabled === undefined ? true : !!row.AlertStockEnabled,
+    alertCreditLimitEnabled: !!row.AlertCreditLimitEnabled,
+  };
+}
+
+async function isClientActive(id) {
+  const client = await getClientForToken(id);
+  return !!(client && client.isActive);
+}
+
 // بيرجع بيانات العميل كاملة شاملة الباسورد بعد فك التشفير - يستخدم داخليًا بس
 // عشان نقدر نتصل بقاعدة بيانات العميل، مبيتبعتش للفرونت إند أبدًا
 async function getClientConnectionConfig(id) {
@@ -226,6 +253,8 @@ module.exports = {
   getAllClients,
   getActiveClients,
   getClientById,
+  getClientForToken,
+  isClientActive,
   getClientLoginByUsername,
   getClientConnectionConfig,
   createClient,

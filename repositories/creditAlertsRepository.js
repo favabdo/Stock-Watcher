@@ -80,4 +80,74 @@ async function syncAlerts(clientId, currentRows) {
   return { newAlerts, resolvedCount: resolvedKeys.length };
 }
 
-module.exports = { syncAlerts };
+// ---------- محرك التنبيهات v2 (موبايل) ----------
+
+// بيرجع الحالات المفتوحة مع آخر مبلغ تجاوز اتبعت عنه تنبيه.
+async function getOpenAlertsForClient(clientId) {
+  const pool = await getPool();
+  const request = pool.request();
+  request.input('clientId', sql.Int, clientId);
+  const result = await request.query(`
+    SELECT CustomerId, BranchId, LastNotifiedOverAmount, FirstNotifiedAt
+    FROM dbo.StockWatcherOpenCreditAlerts_byA
+    WHERE ClientId = @clientId
+  `);
+  return result.recordset.map((r) => ({
+    customerId: Number(r.CustomerId),
+    branchId: r.BranchId == null ? 0 : Number(r.BranchId),
+    lastNotifiedOverAmount:
+      r.LastNotifiedOverAmount == null ? null : Number(r.LastNotifiedOverAmount),
+    firstNotifiedAt: r.FirstNotifiedAt,
+  }));
+}
+
+async function upsertOpenAlert(clientId, customerId, branchId, lastNotifiedOverAmount = null) {
+  const pool = await getPool();
+  const request = pool.request();
+  request.input('clientId', sql.Int, clientId);
+  request.input('customerId', sql.BigInt, customerId);
+  request.input('branchId', sql.Int, branchId ?? 0);
+  request.input('amount', sql.Decimal(18, 2), lastNotifiedOverAmount ?? null);
+  await request.query(`
+    IF EXISTS (
+      SELECT 1 FROM dbo.StockWatcherOpenCreditAlerts_byA
+      WHERE ClientId = @clientId AND CustomerId = @customerId AND BranchId = @branchId
+    )
+    BEGIN
+      UPDATE dbo.StockWatcherOpenCreditAlerts_byA
+      SET LastNotifiedOverAmount = COALESCE(@amount, LastNotifiedOverAmount)
+      WHERE ClientId = @clientId AND CustomerId = @customerId AND BranchId = @branchId;
+    END
+    ELSE
+    BEGIN
+      INSERT INTO dbo.StockWatcherOpenCreditAlerts_byA
+        (ClientId, CustomerId, BranchId, LastNotifiedOverAmount, FirstNotifiedAt)
+      VALUES (@clientId, @customerId, @branchId, @amount, GETDATE());
+    END
+  `);
+}
+
+async function setLastNotifiedOverAmount(clientId, customerId, branchId, amount) {
+  const pool = await getPool();
+  const request = pool.request();
+  request.input('clientId', sql.Int, clientId);
+  request.input('customerId', sql.BigInt, customerId);
+  request.input('branchId', sql.Int, branchId ?? 0);
+  request.input('amount', sql.Decimal(18, 2), Number(amount) || 0);
+  await request.query(`
+    UPDATE dbo.StockWatcherOpenCreditAlerts_byA
+    SET LastNotifiedOverAmount = @amount
+    WHERE ClientId = @clientId AND CustomerId = @customerId AND BranchId = @branchId
+  `);
+}
+
+module.exports = {
+  syncAlerts,
+  keyOf,
+  getOpenAlertKeys,
+  insertOpenAlerts,
+  deleteResolvedAlerts,
+  getOpenAlertsForClient,
+  upsertOpenAlert,
+  setLastNotifiedOverAmount,
+};

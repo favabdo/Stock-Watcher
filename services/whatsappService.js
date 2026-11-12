@@ -32,7 +32,18 @@ function normalizePhone(phone) {
 // - ده اللي مستخدم في تنبيهات تجاوز الحد الائتماني عشان تبعت بقالب واتساب
 // جديد منفصل تمامًا عن قالب تنبيهات نقص الاستوك (كل قالب لازم يتاخدله موافقة
 // من ميتا لوحده، فمينفعش نستخدم نفس القالب لرسالتين شكلهم مختلف).
+function maskPhone(phone) {
+  const digits = normalizePhone(phone);
+  if (digits.length <= 4) return '****';
+  return `${'*'.repeat(Math.max(0, digits.length - 4))}${digits.slice(-4)}`;
+}
+
 async function sendWhatsappMessage(toPhone, messageText, options = {}) {
+  if (process.env.WHATSAPP_DRY_RUN === 'true') {
+    console.log(`[WhatsApp][DRY RUN] to ${maskPhone(toPhone)}: ${String(messageText).slice(0, 160)}`);
+    return { dryRun: true, messaging_product: 'whatsapp' };
+  }
+
   const token = process.env.WHATSAPP_TOKEN;
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   const apiVersion = process.env.WHATSAPP_API_VERSION || 'v20.0';
@@ -83,8 +94,11 @@ async function sendWhatsappMessage(toPhone, messageText, options = {}) {
       text: { body: messageText },
     };
   }
+  const loggableBody = process.env.LOG_PII === 'true'
+    ? body
+    : { ...body, to: maskPhone(body.to) };
   console.log("========== WHATSAPP PAYLOAD ==========");
-  console.log(JSON.stringify(body, null, 2));
+  console.log(JSON.stringify(loggableBody, null, 2));
   console.log("======================================");
   const res = await fetch(url, {
     method: 'POST',

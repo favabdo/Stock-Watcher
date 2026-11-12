@@ -29,3 +29,29 @@ services:
         value: "* * * * *"
       - key: CRON_SECRET
         sync: false
+      - key: MOBILE_ACCESS_TOKEN_TTL
+        value: 60m
+      - key: MOBILE_REFRESH_TOKEN_DAYS
+        value: 60
+      - key: ALERT_ENGINE_V2
+        value: true
+      - key: PUSH_ENABLED
+        value: false
+      - key: FCM_PROJECT_ID
+        sync: false
+      - key: FCM_SERVICE_ACCOUNT_JSON_B64
+        sync: false
+      - key: NOTIFICATION_DISPATCH_ENABLED
+        value: true
+      - key: DIGEST_JOB_ENABLED
+        value: true
+      - key: REPORT_MAX_ROWS
+        value: 2000
+      - key: REPORT_TIMEOUT_MS
+        value: 20000
+      - key: WHATSAPP_WEBHOOK_VERIFY_TOKEN
+        sync: false
+      - key: WHATSAPP_DRY_RUN
+        value: false
+      - key: LOG_PII
+        value: false

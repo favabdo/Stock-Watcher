@@ -14,8 +14,12 @@ function getSecret() {
 }
 
 // بيولد توكن لجلسة العميل بعد ما يسجل دخول بنجاح، بيحتوي بس على الآيدي والاسم
-// والرول (من غير أي بيانات حساسة زي باسورد أو بيانات اتصال قاعدة البيانات)
-function signClientToken(client) {
+// والرول (من غير أي بيانات حساسة زي باسورد أو بيانات اتصال قاعدة البيانات).
+// options.ttl / options.extraClaims اختياريان: الموبايل يستخدم توكين أقصر
+// (access token) مع claims إضافية، والويب يفضل على السلوك الافتراضي 30 يوم.
+function signClientToken(client, options = {}) {
+  const ttl = options.ttl || TOKEN_TTL;
+  const extraClaims = options.extraClaims || {};
   return jwt.sign(
     {
       clientId: client.id,
@@ -25,16 +29,20 @@ function signClientToken(client) {
       // (أو يخفي) قسم "تجاوز الحد الائتماني" في الصفحة الرئيسية من غير نداء إضافي.
       alertStockEnabled: client.alertStockEnabled !== false,
       alertCreditLimitEnabled: !!client.alertCreditLimitEnabled,
+      ...extraClaims,
     },
     getSecret(),
-    { expiresIn: TOKEN_TTL }
+    { expiresIn: ttl }
   );
 }
 
-// بيتحقق من التوكن وبيرجع البيانات اللي جواه، أو null لو غلط/منتهي
+// بيتحقق من التوكن وبيرجع البيانات اللي جواه، أو null لو غلط/منتهي.
+// لازم يحتوي clientId - ده يمنع توكن الأدمن (اللي مالوش clientId) من
+// الدخول على مسارات العميل.
 function verifyClientToken(token) {
   try {
     const payload = jwt.verify(token, getSecret());
+    if (payload.clientId === undefined || payload.clientId === null) return null;
     return {
       id: payload.clientId,
       clientName: payload.clientName,

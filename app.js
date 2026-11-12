@@ -8,9 +8,11 @@ const authRoutes = require('./routes/auth.routes');
 const adminAuthRoutes = require('./routes/adminAuth.routes');
 const whatsappWebhookRoutes = require('./routes/whatsappWebhook.routes');
 const cronRoutes = require('./routes/cron.routes');
+const mobileRoutes = require('./routes/mobile.routes');
 const scheduledCheckJob = require('./jobs/scheduledCheckJob');
 
 const app = express();
+app.set('trust proxy', 1);
 app.use(express.json());
 
 // Health check (Render pings this to confirm the service is alive)
@@ -18,6 +20,7 @@ app.get('/health', (req, res) => res.status(200).json({ status: 'ok' }));
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+app.use('/api/mobile/v1', mobileRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminAuthRoutes);
 app.use('/api/items', itemsRoutes);

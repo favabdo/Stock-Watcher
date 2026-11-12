@@ -2,6 +2,7 @@ const cron = require('node-cron');
 const clientsRepository = require('../repositories/clientsRepository');
 const multiClientCheckService = require('../services/multiClientCheckService');
 const creditLimitCheckService = require('../services/creditLimitCheckService');
+const alertEngineService = require('../services/alertEngineService');
 
 // التشغيل التلقائي بيتفعل بـ:
 //   ENABLE_CRON=true
@@ -65,33 +66,49 @@ async function runAllClientsCheck() {
       try {
         const fullConfig = await clientsRepository.getClientConnectionConfig(client.id);
 
-        // كل عميل بيتفحص بحسب نوع التنبيهات المفعّلة له (alertStockEnabled /
-        // alertCreditLimitEnabled) - ممكن يكون مفعّل واحد بس أو الاتنين مع
-        // بعض. onlyNewAlerts: true في الحالتين -> يبعت تنبيه بس عن الحالات
-        // الجديدة اللي ظهرت من آخر فحص، مش عن كل الحالات المفتوحة في كل مرة.
-        if (fullConfig.alertStockEnabled) {
+        if (process.env.ALERT_ENGINE_V2 === 'true') {
           try {
-            const result = await multiClientCheckService.runCheckForClient(fullConfig, { onlyNewAlerts: true });
-            if (result.newAlertsCount > 0) {
+            const result = await alertEngineService.runClientCycle(fullConfig);
+            const newCount =
+              (result.stock?.newAlertsCount || 0) + (result.credit?.newAlertsCount || 0);
+            if (newCount > 0) {
               console.log(
-                `[Cron] "${result.clientName}": ${result.newAlertsCount} صنف جديد وصل لحد إعادة الطلب (من إجمالي ${result.belowThresholdCount} حالة حاليًا).`
+                `[Cron][v2] "${result.clientName}": ${newCount} تنبيه جديد دخل الـ outbox.`
               );
             }
           } catch (err) {
-            console.error(`[Cron] فشل فحص الاستوك للعميل "${client.clientName}":`, err.message);
+            console.error(`[Cron][v2] فشل فحص العميل "${client.clientName}":`, err.message);
           }
-        }
-
-        if (fullConfig.alertCreditLimitEnabled) {
-          try {
-            const result = await creditLimitCheckService.runCreditCheckForClient(fullConfig, { onlyNewAlerts: true });
-            if (result.newAlertsCount > 0) {
-              console.log(
-                `[Cron] "${result.clientName}": ${result.newAlertsCount} حالة جديدة تجاوزت الحد الائتماني (من إجمالي ${result.overLimitCount} حالة حاليًا).`
-              );
+        } else {
+          // المسار القديم كما هو: فحص مباشر + واتساب فوري.
+          // كل عميل بيتفحص بحسب نوع التنبيهات المفعّلة له (alertStockEnabled /
+          // alertCreditLimitEnabled) - ممكن يكون مفعّل واحد بس أو الاتنين مع
+          // بعض. onlyNewAlerts: true في الحالتين -> يبعت تنبيه بس عن الحالات
+          // الجديدة اللي ظهرت من آخر فحص، مش عن كل الحالات المفتوحة في كل مرة.
+          if (fullConfig.alertStockEnabled) {
+            try {
+              const result = await multiClientCheckService.runCheckForClient(fullConfig, { onlyNewAlerts: true });
+              if (result.newAlertsCount > 0) {
+                console.log(
+                  `[Cron] "${result.clientName}": ${result.newAlertsCount} صنف جديد وصل لحد إعادة الطلب (من إجمالي ${result.belowThresholdCount} حالة حاليًا).`
+                );
+              }
+            } catch (err) {
+              console.error(`[Cron] فشل فحص الاستوك للعميل "${client.clientName}":`, err.message);
             }
-          } catch (err) {
-            console.error(`[Cron] فشل فحص الحد الائتماني للعميل "${client.clientName}":`, err.message);
+          }
+
+          if (fullConfig.alertCreditLimitEnabled) {
+            try {
+              const result = await creditLimitCheckService.runCreditCheckForClient(fullConfig, { onlyNewAlerts: true });
+              if (result.newAlertsCount > 0) {
+                console.log(
+                  `[Cron] "${client.clientName}": ${result.newAlertsCount} حالة جديدة تجاوزت الحد الائتماني (من إجمالي ${result.overLimitCount} حالة حاليًا).`
+                );
+              }
+            } catch (err) {
+              console.error(`[Cron] فشل فحص الحد الائتماني للعميل "${client.clientName}":`, err.message);
+            }
           }
         }
       } catch (err) {

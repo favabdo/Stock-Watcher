@@ -2,6 +2,8 @@ const app = require('./app');
 const { getPool } = require('./config/db');
 const runMigrations = require('./migrations/runMigrations');
 const migrateLegacyPhones = require('./migrations/legacyPhonesMigration');
+const notificationDispatchJob = require('./jobs/notificationDispatchJob');
+const digestJob = require('./jobs/digestJob');
 
 const PORT = process.env.PORT || 4000;
 
@@ -22,6 +24,11 @@ const PORT = process.env.PORT || 4000;
   } catch (err) {
     console.error('[Startup] فشل التأكد من/إنشاء الجداول، السيرفر هيقوم برضه لكن ممكن يحصل أخطاء في التعامل مع الداتابيز:', err.message);
   }
+
+  // إرسال الإشعارات (Push/WhatsApp) من الـ outbox + الملخص الدوري.
+  // كل واحد بيتفعّل/يتوقف من متغير بيئة مستقل.
+  notificationDispatchJob.start();
+  digestJob.start();
 
   app.listen(PORT, () => console.log(`Stock Watcher running on port ${PORT}`));
 })();

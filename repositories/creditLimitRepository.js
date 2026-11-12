@@ -90,4 +90,4 @@ async function runOverCreditLimit(pool, { branchId = '', customerGroupId = '' } 
   return rows.map(mapRow);
 }
 
-module.exports = { runOverCreditLimit, getTodayYyyymmdd };
+module.exports = { runOverCreditLimit, getTodayYyyymmdd, mapRow };

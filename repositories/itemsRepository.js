@@ -54,4 +54,24 @@ async function updateReorderQty(pool, id, reorderQty) {
   return getItemById(pool, id);
 }
 
-module.exports = { searchItems, getItemById, updateReorderQty };
+// بيرجع Min/Max/Reorder لعدة أصناف في نداء واحد - يستخدمه محرك اقتراح
+// إعادة الطلب بدل ما نعمل استعلام لكل صنف.
+async function getItemsMinMax(pool, ids) {
+  const byId = new Map();
+  if (!ids || ids.length === 0) return byId;
+
+  const request = pool.request();
+  const params = ids.map((id, i) => {
+    request.input(`id${i}`, sql.Int, Number(id));
+    return `@id${i}`;
+  });
+  const result = await request.query(`
+    SELECT ID, Code, Name_Ar, Name_En, ReorderQty, MinQty, MaxQty
+    FROM dbo.wh_Items
+    WHERE ID IN (${params.join(', ')})
+  `);
+  for (const row of result.recordset) byId.set(Number(row.ID), row);
+  return byId;
+}
+
+module.exports = { searchItems, getItemById, updateReorderQty, getItemsMinMax };

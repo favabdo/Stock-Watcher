@@ -32,7 +32,9 @@ function buildWhatsappMessage(clientName, item, belowThreshold) {
 // clientInfo (اختياري): { clientName, whatsappPhones } - لو موجود وفيه مخازن
 // تحت الحد، بتتبعت رسالة واتساب حقيقية زي بالظبط اللي بيبعتها الفحص التلقائي
 // في الصفحة الرئيسية (مش مجرد طباعة في الكونسول زي قبل كده).
-async function checkItemAcrossStores(pool, itemId, clientInfo = null) {
+// قراءة فقط: بترجّع بيانات الصنف وكل مخازنه. لا ترسل أي واتساب.
+// الموبايل يستخدمها عند فتح صنف بدل checkItemAcrossStores.
+async function getItemStock(pool, itemId) {
   const item = await itemsRepository.getItemById(pool, itemId);
   if (!item) {
     throw Object.assign(new Error('الصنف غير موجود'), { status: 404 });
@@ -55,16 +57,30 @@ async function checkItemAcrossStores(pool, itemId, clientInfo = null) {
     belowThreshold: Number(r.liveReorderQty) >= 0,
   }));
 
-  const belowThreshold = stores.filter((s) => s.belowThreshold);
+  return {
+    item,
+    itemid: item.ID,
+    itemcode: item.Code,
+    stores,
+    belowThreshold: stores.filter((s) => s.belowThreshold),
+  };
+}
 
+// السلوك القديم للويب: قراءة + إرسال واتساب لو فيه مخازن تحت الحد.
+// options.notify === false يخليها قراءة فقط من غير أي إرسال.
+async function checkItemAcrossStores(pool, itemId, clientInfo = null, options = {}) {
+  const result = await getItemStock(pool, itemId);
+  const { item, belowThreshold } = result;
   let whatsappResult = null;
+
   if (belowThreshold.length > 0) {
     console.log(
       `[ACTION][ReorderAlert] الصنف ${item.Code} (${item.Name_Ar || item.Name_En}) ` +
       `وصل لحد إعادة الطلب أو أقل في ${belowThreshold.length} مخزن.`
     );
 
-    if (clientInfo && clientInfo.whatsappPhones && clientInfo.whatsappPhones.length > 0) {
+    const shouldNotify = options.notify !== false;
+    if (shouldNotify && clientInfo && clientInfo.whatsappPhones && clientInfo.whatsappPhones.length > 0) {
       const message = buildWhatsappMessage(clientInfo.clientName, item, belowThreshold);
       try {
         whatsappResult = await whatsappService.sendWhatsappMessageToMany(clientInfo.whatsappPhones, message);
@@ -78,14 +94,7 @@ async function checkItemAcrossStores(pool, itemId, clientInfo = null) {
     console.log(`[StockCheck] الصنف ${item.Code}: مفيش أي مخزن تحت حد إعادة الطلب (${item.ReorderQty}).`);
   }
 
-  return {
-    item,
-    itemid: item.ID,
-    itemcode: item.Code,
-    stores,
-    belowThreshold,
-    whatsapp: whatsappResult,
-  };
+  return { ...result, whatsapp: whatsappResult };
 }
 
-module.exports = { checkItemAcrossStores };
+module.exports = { getItemStock, checkItemAcrossStores };

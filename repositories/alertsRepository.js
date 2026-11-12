@@ -85,4 +85,10 @@ async function syncAlerts(clientId, currentRows) {
   return { newAlerts, resolvedCount: resolvedKeys.length };
 }
 
-module.exports = { syncAlerts };
+module.exports = {
+  syncAlerts,
+  keyOf,
+  getOpenAlertKeys,
+  insertOpenAlerts,
+  deleteResolvedAlerts,
+};
