@@ -11,7 +11,7 @@ BEGIN
         ReportId    NVARCHAR(80)      NOT NULL,
         ParamsJson  NVARCHAR(MAX)     NULL,
         Format      NVARCHAR(8)       NOT NULL,   -- json|xlsx
-        RowCount    INT               NULL,
+        RowsReturned INT              NULL,       -- RowCount is a T-SQL keyword
         DurationMs  INT               NULL,
         Status      NVARCHAR(12)      NOT NULL,   -- ok|error|timeout
         ErrorCode   NVARCHAR(80)      NULL,

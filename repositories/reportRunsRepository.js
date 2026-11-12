@@ -13,7 +13,7 @@ async function insertRun(data) {
   request.input('errorCode', sql.NVarChar(80), data.errorCode || null);
   await request.query(`
     INSERT INTO dbo.StockWatcherReportRuns_byA
-      (ClientId, ReportId, ParamsJson, Format, RowCount, DurationMs, Status, ErrorCode)
+      (ClientId, ReportId, ParamsJson, Format, RowsReturned, DurationMs, Status, ErrorCode)
     VALUES
       (@clientId, @reportId, @paramsJson, @format, @rowCount, @durationMs, @status, @errorCode)
   `);
