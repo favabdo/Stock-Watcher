@@ -37,7 +37,7 @@ async function runReport(pool, report, params, { maxRows, timeoutMs } = {}) {
     if (!typer) throw new Error(`نوع معامل غير معروف: ${binding.type}`);
     const [sqlType, value] = typer(binding.value);
     request.input(key, sqlType, value);
-    assignments.push(`${key} = @${key}`);
+    assignments.push(`@${key} = @${key}`);
   }
 
   let text;

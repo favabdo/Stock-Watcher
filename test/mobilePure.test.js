@@ -5,6 +5,81 @@ const { computeReorderSuggestion } = require('../services/reorderSuggestionServi
 const { generateRefreshToken, hashRefreshToken } = require('../utils/refreshToken');
 const { validateParams } = require('../utils/reportParams');
 const { isDigestDue, zonedParts } = require('../utils/digestSchedule');
+const { listReports, getReportById } = require('../config/reportsCatalog');
+const { runReport } = require('../repositories/reportsRepository');
+
+for (const report of listReports().filter((entry) => entry.mode === 'proc')) {
+  test(`report ${report.id} uses named SQL procedure parameters`, async () => {
+    const params = validateParams(report, report.id === 'item_stock_by_store' ? { itemId: '1024' } : {});
+    const bindings = new Map();
+    let query;
+    const request = {
+      input(key, type, value) {
+        assert.ok(type);
+        assert.equal(bindings.has(key), false);
+        bindings.set(key, value);
+      },
+      async query(text) {
+        query = text;
+        return { recordset: [] };
+      },
+    };
+    const result = await runReport({ request: () => request }, report, params);
+    const keys = [...new Set([
+      ...report.staticInputs.map((input) => input.key),
+      ...report.params.map((param) => param.inputKey || param.key),
+    ])];
+    assert.deepEqual([...bindings.keys()], keys);
+    assert.equal(query, `SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;\nEXEC ${report.proc} ${keys.map((key) => `@${key} = @${key}`).join(', ')};`);
+    for (const param of report.params) {
+      assert.equal(bindings.get(param.inputKey || param.key), params[param.key]);
+    }
+    assert.equal(request.timeout, report.timeoutMs);
+    assert.deepEqual(result, { rows: [], truncated: false, totalBeforeLimit: 0 });
+  });
+}
+
+test('report parameters stay bound and override static defaults once', async () => {
+  const report = getReportById('credit_over_limit');
+  const branchId = "1'; SELECT 'not executable';--";
+  const bindings = new Map();
+  const request = {
+    input(key, type, value) {
+      assert.equal(bindings.has(key), false);
+      bindings.set(key, value);
+    },
+    async query(text) {
+      assert.equal(text.includes(branchId), false);
+      assert.equal(text.match(/@Branchid = @Branchid/g)?.length, 1);
+      return { recordset: [] };
+    },
+  };
+  await runReport({ request: () => request }, report, validateParams(report, { branchId }));
+  assert.equal(bindings.get('Branchid'), branchId);
+});
+
+test('query reports preserve filtering mapping and row limits', async () => {
+  const report = {
+    mode: 'query',
+    sql: 'SELECT value FROM report_data WHERE value >= @minimum;',
+    params: [{ key: 'minimum', type: 'int' }],
+    filter: (row) => row.value > 1,
+    mapRow: (row) => ({ amount: row.value }),
+  };
+  const request = {
+    input(key, type, value) {
+      assert.equal(key, 'minimum');
+      assert.equal(value, 1);
+    },
+    async query(text) {
+      assert.equal(text, `SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;\n${report.sql}`);
+      return { recordset: [{ value: 1 }, { value: 2 }, { value: 3 }] };
+    },
+  };
+  const result = await runReport({ request: () => request }, report, { minimum: 1 }, { maxRows: 1, timeoutMs: 4000 });
+  assert.deepEqual(result, { rows: [{ amount: 2 }], truncated: true, totalBeforeLimit: 2 });
+  assert.equal(request.timeout, 4000);
+});
 
 test('reorder suggestion uses MaxQty first', () => {
   assert.equal(computeReorderSuggestion({ stock: 3, reorderQty: 5, minQty: 2, maxQty: 20 }), 17);
